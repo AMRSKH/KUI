@@ -89,7 +89,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       theme: getTheme(settings.theme),
       scrollback: 5000,
       cursorInactiveStyle: 'outline',
-      convertEol: false,
+      convertEol: true,
       windowsMode: false,
       windowsPty: {
         backend: 'conpty',
