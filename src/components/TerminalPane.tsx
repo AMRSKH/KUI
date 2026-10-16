@@ -25,6 +25,14 @@ interface PtyOutputPayload {
   data: string;
 }
 
+// Safely detect if running inside Tauri runtime
+const checkIsTauri = (): boolean => {
+  return (
+    typeof window !== 'undefined' &&
+    Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
+  );
+};
+
 export const TerminalPane: React.FC<TerminalPaneProps> = ({
   sessionId,
   isFocused,
@@ -39,6 +47,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const [, setIsSpawned] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const isTauriRef = useRef(checkIsTauri());
 
   // Compute font family chain specifically tailored for Khmer CTL + Monospace
   const computedFontFamily = `"${settings.primaryFont}", "${settings.khmerFont}", "Kantumruy Pro", "Noto Sans Khmer", monospace`;
@@ -50,7 +59,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       fitAddonRef.current.fit();
       const cols = termRef.current.cols;
       const rows = termRef.current.rows;
-      if (cols > 0 && rows > 0) {
+      if (isTauriRef.current && cols > 0 && rows > 0) {
         invoke('resize_pty', { sessionId, cols, rows }).catch(() => {
           // Ignore resize errors if pty is already closed or restarting
         });
@@ -60,9 +69,11 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     }
   }, [sessionId]);
 
-  // Initialize terminal instance and spawn PTY
+  // Initialize terminal instance and spawn PTY or Browser Demo Shell
   useEffect(() => {
     if (!containerRef.current) return;
+    const isTauri = checkIsTauri();
+    isTauriRef.current = isTauri;
 
     // 1. Initialize Terminal with Khmer Unicode 11 support & zero-clipping line height
     const term = new Terminal({
@@ -96,68 +107,133 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Fit initial dimensions
     fitAddon.fit();
     const initialCols = term.cols || 80;
     const initialRows = term.rows || 24;
 
-    // 3. Spawn shell backend
-    invoke('spawn_pty', {
-      sessionId,
-      shell: settings.shell.trim() || null,
-      cols: initialCols,
-      rows: initialRows,
-    })
-      .then(() => {
-        setIsSpawned(true);
-      })
-      .catch((err) => {
-        term.writeln(`\r\n\x1b[31;1m[KUI Error]\x1b[0m Failed to spawn shell: ${err}\r\n`);
-      });
-
-    // 4. Handle terminal keyboard / IME / paste input to PTY
-    const onDataDisposable = term.onData((data) => {
-      invoke('write_to_pty', { sessionId, data }).catch(() => {
-        // Ignored
-      });
-    });
-
-    // 5. Listen to PTY output event emitted by Tauri
+    let onDataDisposable = { dispose: () => {} };
     let unlistenOutput: UnlistenFn | null = null;
     let unlistenClosed: UnlistenFn | null = null;
 
-    listen<PtyOutputPayload>('pty-output', (event) => {
-      if (event.payload.session_id === sessionId) {
-        term.write(event.payload.data);
-      }
-    }).then((unlisten) => {
-      unlistenOutput = unlisten;
-    });
+    if (isTauri) {
+      // === TAURI NATIVE PTY MODE ===
+      invoke('spawn_pty', {
+        sessionId,
+        shell: settings.shell.trim() || null,
+        cols: initialCols,
+        rows: initialRows,
+      })
+        .then(() => {
+          setIsSpawned(true);
+        })
+        .catch((err) => {
+          term.writeln(`\r\n\x1b[31;1m[KUI Error]\x1b[0m Failed to spawn shell: ${err}\r\n`);
+        });
 
-    listen<PtyOutputPayload>('pty-closed', (event) => {
-      if (event.payload.session_id === sessionId) {
-        term.writeln('\r\n\x1b[90m[Process completed]\x1b[0m');
-      }
-    }).then((unlisten) => {
-      unlistenClosed = unlisten;
-    });
+      onDataDisposable = term.onData((data) => {
+        invoke('write_to_pty', { sessionId, data }).catch(() => {});
+      });
 
-    // Focus if initial
+      listen<PtyOutputPayload>('pty-output', (event) => {
+        if (event.payload.session_id === sessionId) {
+          term.write(event.payload.data);
+        }
+      }).then((unlisten) => {
+        unlistenOutput = unlisten;
+      });
+
+      listen<PtyOutputPayload>('pty-closed', (event) => {
+        if (event.payload.session_id === sessionId) {
+          term.writeln('\r\n\x1b[90m[Process completed]\x1b[0m');
+        }
+      }).then((unlisten) => {
+        unlistenClosed = unlisten;
+      });
+    } else {
+      // === BROWSER PREVIEW INTERACTIVE SHELL ===
+      const prompt = () => {
+        term.write('\r\n\x1b[36;1mKUI\x1b[0m:\x1b[34m~/khmer-ctl\x1b[0m$ ');
+      };
+
+      term.writeln('\x1b[36;1m   _  ___   _ ___ \x1b[0m');
+      term.writeln('\x1b[36;1m  | |/ / | | |_ _| \x1b[0m \x1b[1mKUI - Khmer Unicode Terminal Emulator\x1b[0m');
+      term.writeln('\x1b[36;1m  | \' /| | | || |  \x1b[0m \x1b[90m[Browser Preview Mode]\x1b[0m');
+      term.writeln('\x1b[36;1m  |_|\\_\\\\___/|___| \x1b[0m \x1b[32mComplex Text Layout (CTL) & OpenCode Ready\x1b[0m');
+      term.writeln('');
+      term.writeln('\x1b[90m* Type Khmer or English commands below.\x1b[0m');
+      term.writeln('\x1b[90m* Try: \x1b[33mtest-khmer\x1b[90m, \x1b[33mopencode\x1b[90m, \x1b[33mhelp\x1b[90m, \x1b[33mclear\x1b[0m');
+      term.writeln('\x1b[90m* To run native PowerShell shell: \x1b[36mnpm run tauri dev\x1b[0m');
+      prompt();
+
+      let currentLine = '';
+
+      onDataDisposable = term.onData((data) => {
+        if (data === '\r') {
+          // Enter key
+          term.write('\r\n');
+          const cmd = currentLine.trim();
+          currentLine = '';
+
+          if (cmd === 'test-khmer') {
+            term.writeln('\x1b[36m┌── សាកល្បងអក្សរខ្មែរ (Khmer Unicode CTL & Zero-Clip) ──┐\x1b[0m');
+            term.writeln('\x1b[32m│ សួស្តីពិភពលោក! ខ្ញុំកំពុងសរសេរកូដភាសាខ្មែរលើ KUI    │\x1b[0m');
+            term.writeln('\x1b[33m│ ស្ត្រី កម្ពុជា ស្រឡាញ់ ត្រី ព្រឹក ខ្ញុំបាទ ព្រះវិហារ │\x1b[0m');
+            term.writeln('\x1b[35m│ ជើងអក្សរ: ្ត ្រ ្ក ្ព ្ទ ញ្ជ ង្ក (Zero Clipping)      │\x1b[0m');
+            term.writeln('\x1b[36m└─────────────────────────────────────────────────────┘\x1b[0m');
+          } else if (cmd === 'opencode') {
+            term.writeln('\x1b[34;1m┌── OpenCode TUI ── [Workspace: KUI Terminal] ────────┐\x1b[0m');
+            term.writeln('\x1b[37m│ > ឯកសារ: src/components/TerminalPane.tsx            │\x1b[0m');
+            term.writeln('\x1b[32m│ + Unicode 11 Addon Loaded                           │\x1b[0m');
+            term.writeln('\x1b[32m│ + Fallback: Kantumruy Pro & Noto Sans Khmer         │\x1b[0m');
+            term.writeln('\x1b[33m│ * Line Height: 1.35 (No vertical glyph clipping)    │\x1b[0m');
+            term.writeln('\x1b[34;1m└─────────────────────────────────────────────────────┘\x1b[0m');
+          } else if (cmd === 'clear') {
+            term.clear();
+          } else if (cmd === 'help') {
+            term.writeln('Available preview commands:');
+            term.writeln('  \x1b[33mtest-khmer\x1b[0m  - Display Khmer subscripts & stacked vowels test');
+            term.writeln('  \x1b[33mopencode\x1b[0m    - Simulate OpenCode TUI interface');
+            term.writeln('  \x1b[33mclear\x1b[0m       - Clear terminal screen');
+            term.writeln('  \x1b[33mhelp\x1b[0m        - Show this help message');
+          } else if (cmd.length > 0) {
+            term.writeln(`\x1b[90mCommand received:\x1b[0m ${cmd}`);
+          }
+          prompt();
+        } else if (data === '\u007F' || data === '\b') {
+          // Backspace
+          if (currentLine.length > 0) {
+            currentLine = currentLine.slice(0, -1);
+            term.write('\b \b');
+          }
+        } else if (data === '\u0003') {
+          // Ctrl+C
+          term.write('^C');
+          currentLine = '';
+          prompt();
+        } else {
+          // Printable characters including multi-byte Khmer Unicode letters
+          currentLine += data;
+          term.write(data);
+        }
+      });
+    }
+
     if (isFocused) {
       term.focus();
     }
 
-    // Cleanup when pane closes
     return () => {
       onDataDisposable.dispose();
       if (unlistenOutput) unlistenOutput();
       if (unlistenClosed) unlistenClosed();
-      invoke('kill_pty', { sessionId }).catch(() => {});
+      if (isTauri) {
+        invoke('kill_pty', { sessionId }).catch(() => {});
+      }
       term.dispose();
       termRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [sessionId]); // Only re-create if sessionId changes
+  }, [sessionId]);
 
   // Update terminal settings in real-time without restarting shell
   useEffect(() => {
@@ -171,7 +247,6 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     term.options.cursorBlink = settings.cursorBlink;
     term.options.theme = getTheme(settings.theme);
 
-    // Refit after font/size change
     handleResize();
   }, [settings, computedFontFamily, handleResize]);
 
