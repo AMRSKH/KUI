@@ -50,7 +50,32 @@
 
 /* Make sure Khmer characters and stacked vowels have proper spacing & OpenType ligatures */
 .xterm-rows {
-  letter-spacing: 0px;
+  letter-spacing: normal;
   font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
   text-rendering: optimizeLegibility;
+  font-variant-ligatures: normal;
 }
+
+/* 
+ * CRITICAL FIX FOR KHMER CTL IN XTERM DOM RENDERER:
+ * 1. xterm's DomRendererRowFactory calculates:
+ *    spacing = cellWidth - widthCache.get(chars)
+ *    and injects inline `style="letter-spacing: -7px;"` onto individual <span> elements
+ *    because Khmer glyphs are wider than Latin monospace cells (~16px vs ~9px).
+ *    This inline negative letter-spacing crushes Khmer consonants into each other.
+ *    Overriding with `letter-spacing: normal !important;` prevents character squishing.
+ * 2. `overflow: visible !important;` prevents tall subscripts (ជើង) and top vowels from clipping.
+ */
+.xterm .xterm-rows span,
+.xterm-rows span,
+.xterm-rows div span {
+  letter-spacing: normal !important;
+  font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
+  overflow: visible !important;
+}
+
+.xterm .xterm-rows > div,
+.xterm-rows > div {
+  overflow: visible !important;
+}
+

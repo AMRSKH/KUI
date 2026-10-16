@@ -83,6 +83,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       fontFamily: computedFontFamily,
       fontSize: settings.fontSize,
       lineHeight: settings.lineHeight || 1.45,
+      letterSpacing: 0,
       cursorStyle: settings.cursorStyle,
       cursorBlink: settings.cursorBlink,
       theme: getTheme(settings.theme),
