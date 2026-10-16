@@ -1,6 +1,5 @@
 const path = require('path');
 const os = require('os');
-const { spawn } = require('child_process');
 
 const userProfile = os.homedir();
 const localAppData = process.env.LOCALAPPDATA || path.join(userProfile, 'AppData', 'Local');
@@ -18,18 +17,7 @@ const mingwBin = path.join(
 const llvmBin = 'C:\\Program Files\\LLVM\\bin';
 
 // Prepend toolchain paths to PATH
-const existingPath = process.env.PATH || '';
-process.env.PATH = [cargoBin, mingwBin, llvmBin, existingPath].join(path.delimiter);
+process.env.PATH = [cargoBin, mingwBin, llvmBin, process.env.PATH || ''].join(path.delimiter);
 
-// Execute Tauri CLI directly with Node
-const tauriCliJs = path.join(__dirname, '..', 'node_modules', '@tauri-apps', 'cli', 'main.js');
-const args = process.argv.slice(2);
-
-const child = spawn(process.execPath, [tauriCliJs, ...args], {
-  stdio: 'inherit',
-  env: process.env,
-});
-
-child.on('exit', (code) => {
-  process.exit(code || 0);
-});
+// Directly execute Tauri CLI with updated PATH
+require('@tauri-apps/cli/tauri.js');
