@@ -116,14 +116,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     // Re-fit and refresh when web fonts (Kantumruy Pro / JetBrains Mono) finish loading
     if (typeof document !== 'undefined' && document.fonts) {
       document.fonts.ready.then(() => {
-        try {
-          if (fitAddonRef.current && termRef.current) {
-            fitAddonRef.current.fit();
-            termRef.current.refresh(0, termRef.current.rows - 1);
-          }
-        } catch {
-          // ignore
-        }
+        handleResize();
       });
     }
 
@@ -305,19 +298,31 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     }
   }, [isFocused]);
 
-  // ResizeObserver on container div to automatically adapt to split pane adjustments
+  // Responsive ResizeObserver & Window Resize handler for all window sizes & DPIs
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
-    let timeoutId: number | null = null;
-    const observer = new ResizeObserver(() => {
-      if (timeoutId) window.clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(() => { handleResize(); }, 35);
-    });
+    let rafId: number | null = null;
+
+    const triggerFit = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        handleResize();
+      });
+    };
+
+    const observer = new ResizeObserver(triggerFit);
     observer.observe(el);
+
+    window.addEventListener('resize', triggerFit);
+
+    // Initial trigger
+    triggerFit();
+
     return () => {
       observer.disconnect();
-      if (timeoutId) window.clearTimeout(timeoutId);
+      window.removeEventListener('resize', triggerFit);
+      if (rafId) cancelAnimationFrame(rafId);
     };
   }, [handleResize]);
 
@@ -326,7 +331,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       onClick={onFocus}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`relative h-full w-full flex flex-col bg-kui-darker overflow-hidden transition-all duration-150 ${
+      className={`relative h-full w-full min-h-0 min-w-0 flex flex-col bg-kui-darker overflow-hidden transition-all duration-150 ${
         isFocused
           ? 'ring-1 ring-kui-accent/80 shadow-[inset_0_0_10px_rgba(6,182,212,0.12)]'
           : 'ring-1 ring-kui-border/40'
@@ -390,10 +395,10 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
         </div>
       </div>
 
-      {/* xterm.js Canvas / DOM Container */}
+      {/* xterm.js Canvas / DOM Container (Zero-padding to prevent edge clipping) */}
       <div
         ref={containerRef}
-        className="flex-1 w-full h-full overflow-hidden p-1 bg-transparent"
+        className="flex-1 w-full min-h-0 min-w-0 overflow-hidden bg-transparent"
       />
     </div>
   );

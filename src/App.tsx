@@ -215,6 +215,33 @@ export const App: React.FC = () => {
         e.preventDefault();
         setIsSettingsOpen((v) => !v);
       }
+      // Ctrl+= / Ctrl++: Zoom in (Increase Font Size)
+      else if (e.ctrlKey && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        setSettings((prev) => {
+          const next = { ...prev, fontSize: Math.min(prev.fontSize + 1, 32) };
+          try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)); } catch {}
+          return next;
+        });
+      }
+      // Ctrl+-: Zoom out (Decrease Font Size)
+      else if (e.ctrlKey && (e.key === '-' || e.key === '_')) {
+        e.preventDefault();
+        setSettings((prev) => {
+          const next = { ...prev, fontSize: Math.max(prev.fontSize - 1, 9) };
+          try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)); } catch {}
+          return next;
+        });
+      }
+      // Ctrl+0: Reset Font Size
+      else if (e.ctrlKey && e.key === '0') {
+        e.preventDefault();
+        setSettings((prev) => {
+          const next = { ...prev, fontSize: DEFAULT_SETTINGS.fontSize };
+          try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)); } catch {}
+          return next;
+        });
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -234,7 +261,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Terminal Workspace (Recursive Split Panes) */}
-      <div className="flex-1 w-full h-[calc(100%-2.5rem)] overflow-hidden relative">
+      <div className="flex-1 w-full min-h-0 overflow-hidden relative">
         {currentTab && (
           <SplitPaneContainer
             node={currentTab.rootPane}

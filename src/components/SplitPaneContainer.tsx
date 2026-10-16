@@ -103,7 +103,7 @@ export const SplitPaneContainer: React.FC<SplitPaneContainerProps> = ({
       } overflow-hidden relative select-none`}
     >
       {/* First Child Pane */}
-      <div style={firstStyle} className="h-full overflow-hidden">
+      <div style={firstStyle} className="w-full h-full min-w-0 min-h-0 overflow-hidden">
         <SplitPaneContainer
           node={children[0]}
           activeSessionId={activeSessionId}
@@ -133,7 +133,7 @@ export const SplitPaneContainer: React.FC<SplitPaneContainerProps> = ({
       </div>
 
       {/* Second Child Pane */}
-      <div style={secondStyle} className="h-full overflow-hidden">
+      <div style={secondStyle} className="w-full h-full min-w-0 min-h-0 overflow-hidden">
         <SplitPaneContainer
           node={children[1]}
           activeSessionId={activeSessionId}
