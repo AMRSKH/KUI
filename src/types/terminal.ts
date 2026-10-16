@@ -37,7 +37,7 @@ export const DEFAULT_SETTINGS: TerminalSettings = {
   primaryFont: 'JetBrains Mono',
   khmerFont: 'Kantumruy Pro',
   fontSize: 15,
-  lineHeight: 1.35,
+  lineHeight: 1.45,
   cursorStyle: 'bar',
   cursorBlink: true,
   theme: 'kui-dark',

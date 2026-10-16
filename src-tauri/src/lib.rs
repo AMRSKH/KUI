@@ -43,28 +43,49 @@ fn spawn_pty(
         .map_err(|e| format!("Failed to open PTY: {}", e))?;
 
     // Determine shell to launch
-    let shell_cmd = shell.unwrap_or_else(|| {
-        if cfg!(target_os = "windows") {
-            // Default to PowerShell on Windows, fallback to cmd.exe
-            if let Ok(path) = std::env::var("COMSPEC") {
-                if std::path::Path::new("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe").exists() {
-                    "powershell.exe".to_string()
+    let (shell_cmd, shell_args) = match shell {
+        Some(s) if !s.trim().is_empty() => (s, vec![]),
+        _ => {
+            if cfg!(target_os = "windows") {
+                let ps_path = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+                let exe = if std::path::Path::new(ps_path).exists() {
+                    ps_path.to_string()
+                } else if let Ok(comspec) = std::env::var("COMSPEC") {
+                    comspec
                 } else {
-                    path
-                }
+                    "powershell.exe".to_string()
+                };
+
+                let args = if exe.to_lowercase().ends_with("powershell.exe") {
+                    vec![
+                        "-NoLogo".to_string(),
+                        "-NoExit".to_string(),
+                        "-Command".to_string(),
+                        "[Console]::InputEncoding = [Console]::OutputEncoding = $OutputEncoding = [System.Text.Encoding]::UTF8; chcp 65001 | Out-Null".to_string(),
+                    ]
+                } else {
+                    vec![]
+                };
+
+                (exe, args)
             } else {
-                "powershell.exe".to_string()
+                (
+                    std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string()),
+                    vec![],
+                )
             }
-        } else {
-            std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
         }
-    });
+    };
 
     let mut cmd = CommandBuilder::new(&shell_cmd);
+    for arg in &shell_args {
+        cmd.arg(arg);
+    }
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
     cmd.env("TERM_PROGRAM", "KUI");
     cmd.env("LANG", "en_US.UTF-8");
+    cmd.env("LC_ALL", "en_US.UTF-8");
 
     // Spawn child shell
     let child = pair

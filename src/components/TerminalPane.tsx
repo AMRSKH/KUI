@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { KhmerUnicodeAddon } from '../utils/khmerUnicode';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
@@ -55,7 +55,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   const [statusMsg, setStatusMsg] = useState('');
 
   // Compute font family chain specifically tailored for Khmer CTL + Monospace
-  const computedFontFamily = `"${settings.primaryFont}", "${settings.khmerFont}", "Kantumruy Pro", "Noto Sans Khmer", monospace`;
+  const computedFontFamily = `"${settings.primaryFont}", "${settings.khmerFont}", "Kantumruy Pro", "Noto Sans Khmer", "Leelawadee UI", "Khmer UI", "DaunPenh", "Segoe UI", monospace`;
 
   // Safely resize PTY
   const handleResize = useCallback(() => {
@@ -77,32 +77,29 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     if (!containerRef.current) return;
     const isTauri = isTauriEnv();
 
-    // 1. Initialize Terminal with Khmer Unicode 11 support & zero-clipping line height
+    // 1. Initialize Terminal with Khmer CTL & cluster-aware Unicode support
     const term = new Terminal({
       allowProposedApi: true,
       fontFamily: computedFontFamily,
       fontSize: settings.fontSize,
-      lineHeight: settings.lineHeight,
+      lineHeight: settings.lineHeight || 1.45,
       cursorStyle: settings.cursorStyle,
       cursorBlink: settings.cursorBlink,
       theme: getTheme(settings.theme),
       scrollback: 5000,
       cursorInactiveStyle: 'outline',
       convertEol: true,
-      windowsMode: true,
+      windowsMode: false,
     });
 
     // 2. Addons
     const fitAddon = new FitAddon();
-    const unicode11Addon = new Unicode11Addon();
+    const khmerAddon = new KhmerUnicodeAddon();
     const webLinksAddon = new WebLinksAddon();
 
     term.loadAddon(fitAddon);
-    term.loadAddon(unicode11Addon);
+    term.loadAddon(khmerAddon);
     term.loadAddon(webLinksAddon);
-
-    // CRITICAL for Khmer script: Activate Unicode 11 grapheme cluster width calculation
-    term.unicode.activeVersion = '11';
 
     term.open(containerRef.current);
 
@@ -110,6 +107,21 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     fitAddonRef.current = fitAddon;
 
     fitAddon.fit();
+
+    // Re-fit and refresh when web fonts (Kantumruy Pro / JetBrains Mono) finish loading
+    if (typeof document !== 'undefined' && document.fonts) {
+      document.fonts.ready.then(() => {
+        try {
+          if (fitAddonRef.current && termRef.current) {
+            fitAddonRef.current.fit();
+            termRef.current.refresh(0, termRef.current.rows - 1);
+          }
+        } catch {
+          // ignore
+        }
+      });
+    }
+
     const initialCols = term.cols || 80;
     const initialRows = term.rows || 24;
 

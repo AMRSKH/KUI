@@ -48,7 +48,9 @@
   overflow-y: auto !important;
 }
 
-/* Make sure Khmer characters and stacked vowels have proper spacing */
+/* Make sure Khmer characters and stacked vowels have proper spacing & OpenType ligatures */
 .xterm-rows {
   letter-spacing: 0px;
+  font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
+  text-rendering: optimizeLegibility;
 }
