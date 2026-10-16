@@ -209,9 +209,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="w-full accent-cyan-500 cursor-pointer"
                   />
                   <div className="flex justify-between text-[10px] text-gray-500">
-                    <span>1.00</span>
-                    <span>1.35 (Optimal)</span>
-                    <span>1.80</span>
+                    <span>1.00 (Standard)</span>
+                    <span>1.15</span>
+                    <span>1.50</span>
                   </div>
                 </div>
               </div>

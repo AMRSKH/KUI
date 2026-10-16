@@ -13,7 +13,11 @@ export const App: React.FC = () => {
     try {
       const saved = localStorage.getItem(SETTINGS_KEY);
       if (saved) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        if (parsed.lineHeight && parsed.lineHeight > 1.25) {
+          parsed.lineHeight = 1.0;
+        }
+        return { ...DEFAULT_SETTINGS, ...parsed };
       }
     } catch {
       // Fallback

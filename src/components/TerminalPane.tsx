@@ -82,15 +82,19 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       allowProposedApi: true,
       fontFamily: computedFontFamily,
       fontSize: settings.fontSize,
-      lineHeight: settings.lineHeight || 1.45,
+      lineHeight: settings.lineHeight || 1.0,
       letterSpacing: 0,
       cursorStyle: settings.cursorStyle,
       cursorBlink: settings.cursorBlink,
       theme: getTheme(settings.theme),
       scrollback: 5000,
       cursorInactiveStyle: 'outline',
-      convertEol: true,
+      convertEol: false,
       windowsMode: false,
+      windowsPty: {
+        backend: 'conpty',
+        buildNumber: 22000,
+      },
     });
 
     // 2. Addons
@@ -127,6 +131,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     const initialRows = term.rows || 24;
 
     let onDataDisposable = { dispose: () => {} };
+    let onBinaryDisposable = { dispose: () => {} };
+    let onResizeDisposable = { dispose: () => {} };
     let unlistenOutput: UnlistenFn | null = null;
     let unlistenClosed: UnlistenFn | null = null;
 
@@ -141,14 +147,39 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       })
         .then(() => {
           setStatusMsg('');
+          // Re-fit and synchronize exact container dimensions with ConPTY immediately
+          if (fitAddonRef.current && termRef.current) {
+            try {
+              fitAddonRef.current.fit();
+              const c = termRef.current.cols;
+              const r = termRef.current.rows;
+              if (c > 0 && r > 0) {
+                invoke('resize_pty', { sessionId, cols: c, rows: r }).catch(() => {});
+              }
+            } catch {
+              // ignore
+            }
+          }
         })
         .catch((err) => {
           setStatusMsg('Error');
           term.writeln(`\r\n\x1b[31;1m[KUI Error]\x1b[0m Failed to spawn shell: ${err}\r\n`);
         });
 
+      // Synchronize PTY size whenever xterm grid changes
+      onResizeDisposable = term.onResize(({ cols, rows }) => {
+        if (cols > 0 && rows > 0) {
+          invoke('resize_pty', { sessionId, cols, rows }).catch(() => {});
+        }
+      });
+
       // Forward every keypress / paste to the PTY
       onDataDisposable = term.onData((data) => {
+        invoke('write_to_pty', { sessionId, data }).catch(() => {});
+      });
+
+      // Forward binary streams
+      onBinaryDisposable = term.onBinary((data) => {
         invoke('write_to_pty', { sessionId, data }).catch(() => {});
       });
 
@@ -240,6 +271,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
 
     return () => {
       onDataDisposable.dispose();
+      onBinaryDisposable.dispose();
+      onResizeDisposable.dispose();
       if (unlistenOutput) unlistenOutput();
       if (unlistenClosed) unlistenClosed();
       if (isTauri) {

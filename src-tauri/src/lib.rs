@@ -84,6 +84,7 @@ fn spawn_pty(
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
     cmd.env("TERM_PROGRAM", "KUI");
+    cmd.env("WT_SESSION", uuid::Uuid::new_v4().to_string());
     cmd.env("LANG", "en_US.UTF-8");
     cmd.env("LC_ALL", "en_US.UTF-8");
 

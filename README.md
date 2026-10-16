@@ -16,6 +16,7 @@
   - រក្សាគម្លាតតួអក្សរ និងទីតាំង Cursor បានស្មើល្អក្នុងប្រព័ន្ធ Grid របស់ Terminal
   - បើកដំណើរការ OpenType Ligatures ដូចជា `liga`, `calt`, `clig`
 - **⚡ ល្បឿនលឿន និងស៊ីធនធានតិច:** ដំណើរការដោយ Rust និង Tauri v2 ភ្ជាប់ជាមួយ Windows ConPTY
+- **🖥️ គាំទ្រកម្មវិធី TUI (OpenCode, lazygit, nano, htop):** រក្សាទម្រង់ប្រអប់ (Box-drawing) និង ASCII art បានត្រង់ជួរ មិនរអិល ឬបែកជួរ
 - **🖥️ ចែកផ្ទាំង និងគ្រប់គ្រង Tab:** អាចពុះផ្ទាំងផ្តេក បញ្ឈរ និងសារ៉េប្រវែងផ្ទាំងតាមចិត្ត
 - **🎨 ស្បែកពណ៌ និងពុម្ពអក្សរ:** មាន Theme ស្អាតៗជាច្រើន (`kui-dark`, `dracula`, `nord`, `catppuccin`, `monokai`, `cyberpunk`, `one-dark`) និងអាចប្តូរ Font បានដូចជា JetBrains Mono, Kantumruy Pro និង Noto Sans Khmer
 - **🪟 ដំណើរការល្អលើ Windows:** រៀបចំប្រព័ន្ធ UTF-8 (`chcp 65001`) ដោយស្វ័យប្រវត្តិសម្រាប់ PowerShell, CMD ឬ WSL
@@ -69,6 +70,7 @@ npm run tauri:build
   - Zero-width cluster joining without breaking terminal grid alignment.
   - OpenType ligatures and contextual alternates enabled (`liga`, `calt`, `clig`).
 - **⚡ Blazing Fast & Lightweight:** Powered by Rust and Tauri v2 with native Windows ConPTY integration.
+- **💻 TUI & CLI Optimized:** Seamless rendering for rich TUI apps (OpenCode, lazygit, nano, htop) with precise box-drawing, zero horizontal gaps, and synchronized ConPTY dimensions.
 - **🖥️ Multi-Pane & Tabs:** Split panes horizontally or vertically, drag-adjust split ratios, and manage multiple sessions with ease.
 - **🎨 Custom Theming & Typography:** Built-in modern themes (`kui-dark`, `dracula`, `nord`, `catppuccin`, `monokai`, `cyberpunk`, `one-dark`) and configurable font stacks (`JetBrains Mono`, `Kantumruy Pro`, `Noto Sans Khmer`).
 - **🪟 Windows Native Experience:** Automated UTF-8 (`chcp 65001`) configuration for PowerShell, CMD, or WSL.
