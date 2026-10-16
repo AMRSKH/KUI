@@ -21,13 +21,12 @@ const llvmBin = 'C:\\Program Files\\LLVM\\bin';
 const existingPath = process.env.PATH || '';
 process.env.PATH = [cargoBin, mingwBin, llvmBin, existingPath].join(path.delimiter);
 
-// Find tauri CLI binary
-const tauriBin = path.join(__dirname, '..', 'node_modules', '.bin', process.platform === 'win32' ? 'tauri.cmd' : 'tauri');
+// Execute Tauri CLI directly with Node
+const tauriCliJs = path.join(__dirname, '..', 'node_modules', '@tauri-apps', 'cli', 'main.js');
 const args = process.argv.slice(2);
 
-const child = spawn(tauriBin, args, {
+const child = spawn(process.execPath, [tauriCliJs, ...args], {
   stdio: 'inherit',
-  shell: true,
   env: process.env,
 });
 
