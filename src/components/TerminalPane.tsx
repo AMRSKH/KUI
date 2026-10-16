@@ -25,12 +25,18 @@ interface PtyOutputPayload {
   data: string;
 }
 
-// Safely detect if running inside Tauri runtime
-const checkIsTauri = (): boolean => {
-  return (
-    typeof window !== 'undefined' &&
-    Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
-  );
+// Reliably detect Tauri — works in both dev and installed production builds.
+// __TAURI_INTERNALS__ is injected by the Tauri WebView IPC bridge.
+const isTauriEnv = (): boolean => {
+  try {
+    return (
+      typeof window !== 'undefined' &&
+      '__TAURI_INTERNALS__' in window &&
+      Boolean((window as Record<string, unknown>).__TAURI_INTERNALS__)
+    );
+  } catch {
+    return false;
+  }
 };
 
 export const TerminalPane: React.FC<TerminalPaneProps> = ({
@@ -45,9 +51,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const [, setIsSpawned] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const isTauriRef = useRef(checkIsTauri());
+  const [statusMsg, setStatusMsg] = useState('');
 
   // Compute font family chain specifically tailored for Khmer CTL + Monospace
   const computedFontFamily = `"${settings.primaryFont}", "${settings.khmerFont}", "Kantumruy Pro", "Noto Sans Khmer", monospace`;
@@ -59,10 +64,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       fitAddonRef.current.fit();
       const cols = termRef.current.cols;
       const rows = termRef.current.rows;
-      if (isTauriRef.current && cols > 0 && rows > 0) {
-        invoke('resize_pty', { sessionId, cols, rows }).catch(() => {
-          // Ignore resize errors if pty is already closed or restarting
-        });
+      if (isTauriEnv() && cols > 0 && rows > 0) {
+        invoke('resize_pty', { sessionId, cols, rows }).catch(() => {});
       }
     } catch {
       // Container might be zero-width during split transitions
@@ -72,8 +75,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   // Initialize terminal instance and spawn PTY or Browser Demo Shell
   useEffect(() => {
     if (!containerRef.current) return;
-    const isTauri = checkIsTauri();
-    isTauriRef.current = isTauri;
+    const isTauri = isTauriEnv();
 
     // 1. Initialize Terminal with Khmer Unicode 11 support & zero-clipping line height
     const term = new Terminal({
@@ -117,6 +119,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
 
     if (isTauri) {
       // === TAURI NATIVE PTY MODE ===
+      setStatusMsg('Connecting...');
       invoke('spawn_pty', {
         sessionId,
         shell: settings.shell.trim() || null,
@@ -124,16 +127,19 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
         rows: initialRows,
       })
         .then(() => {
-          setIsSpawned(true);
+          setStatusMsg('');
         })
         .catch((err) => {
+          setStatusMsg('Error');
           term.writeln(`\r\n\x1b[31;1m[KUI Error]\x1b[0m Failed to spawn shell: ${err}\r\n`);
         });
 
+      // Forward every keypress / paste to the PTY
       onDataDisposable = term.onData((data) => {
         invoke('write_to_pty', { sessionId, data }).catch(() => {});
       });
 
+      // Stream PTY output back to xterm
       listen<PtyOutputPayload>('pty-output', (event) => {
         if (event.payload.session_id === sessionId) {
           term.write(event.payload.data);
@@ -144,7 +150,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
 
       listen<PtyOutputPayload>('pty-closed', (event) => {
         if (event.payload.session_id === sessionId) {
-          term.writeln('\r\n\x1b[90m[Process completed]\x1b[0m');
+          setStatusMsg('Closed');
+          term.writeln('\r\n\x1b[90m[Process completed — press Enter to dismiss]\x1b[0m');
         }
       }).then((unlisten) => {
         unlistenClosed = unlisten;
@@ -158,7 +165,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       term.writeln('\x1b[36;1m   _  ___   _ ___ \x1b[0m');
       term.writeln('\x1b[36;1m  | |/ / | | |_ _| \x1b[0m \x1b[1mKUI - Khmer Unicode Terminal Emulator\x1b[0m');
       term.writeln('\x1b[36;1m  | \' /| | | || |  \x1b[0m \x1b[90m[Browser Preview Mode]\x1b[0m');
-      term.writeln('\x1b[36;1m  |_|\\_\\\\___/|___| \x1b[0m \x1b[32mComplex Text Layout (CTL) & OpenCode Ready\x1b[0m');
+      term.writeln('\x1b[36;1m  |_|\\_\\___/|___| \x1b[0m \x1b[32mComplex Text Layout (CTL) & OpenCode Ready\x1b[0m');
       term.writeln('');
       term.writeln('\x1b[90m* Type Khmer or English commands below.\x1b[0m');
       term.writeln('\x1b[90m* Try: \x1b[33mtest-khmer\x1b[90m, \x1b[33mopencode\x1b[90m, \x1b[33mhelp\x1b[90m, \x1b[33mclear\x1b[0m');
@@ -169,7 +176,6 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
 
       onDataDisposable = term.onData((data) => {
         if (data === '\r') {
-          // Enter key
           term.write('\r\n');
           const cmd = currentLine.trim();
           currentLine = '';
@@ -200,18 +206,15 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
           }
           prompt();
         } else if (data === '\u007F' || data === '\b') {
-          // Backspace
           if (currentLine.length > 0) {
             currentLine = currentLine.slice(0, -1);
             term.write('\b \b');
           }
         } else if (data === '\u0003') {
-          // Ctrl+C
           term.write('^C');
           currentLine = '';
           prompt();
         } else {
-          // Printable characters including multi-byte Khmer Unicode letters
           currentLine += data;
           term.write(data);
         }
@@ -233,20 +236,19 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       termRef.current = null;
       fitAddonRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   // Update terminal settings in real-time without restarting shell
   useEffect(() => {
     if (!termRef.current) return;
     const term = termRef.current;
-
     term.options.fontFamily = computedFontFamily;
     term.options.fontSize = settings.fontSize;
     term.options.lineHeight = settings.lineHeight;
     term.options.cursorStyle = settings.cursorStyle;
     term.options.cursorBlink = settings.cursorBlink;
     term.options.theme = getTheme(settings.theme);
-
     handleResize();
   }, [settings, computedFontFamily, handleResize]);
 
@@ -261,17 +263,12 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
-
     let timeoutId: number | null = null;
     const observer = new ResizeObserver(() => {
       if (timeoutId) window.clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(() => {
-        handleResize();
-      }, 35);
+      timeoutId = window.setTimeout(() => { handleResize(); }, 35);
     });
-
     observer.observe(el);
-
     return () => {
       observer.disconnect();
       if (timeoutId) window.clearTimeout(timeoutId);
@@ -305,23 +302,22 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
           <span className="font-semibold tracking-wider">
             {sessionId.slice(0, 8)}
           </span>
-          <span className="text-[10px] px-1 py-0.2 rounded bg-white/5 text-gray-400">
-            CTL
-          </span>
+          {statusMsg && (
+            <span className="text-[10px] px-1 py-0.5 rounded bg-white/5 text-gray-400">
+              {statusMsg}
+            </span>
+          )}
         </div>
 
-        {/* Action Controls */}
+        {/* Pane Action Controls — split & close for THIS pane only */}
         <div
           className={`flex items-center space-x-1 transition-opacity ${
-            isHovered || isFocused ? 'opacity-100' : 'opacity-40'
+            isHovered || isFocused ? 'opacity-100' : 'opacity-0'
           }`}
         >
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSplit('vertical');
-            }}
+            onClick={(e) => { e.stopPropagation(); onSplit('vertical'); }}
             title="Split Right (Alt+Shift+D)"
             className="p-1 rounded hover:bg-white/10 hover:text-cyan-400 text-gray-400 transition-colors"
           >
@@ -329,10 +325,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
           </button>
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSplit('horizontal');
-            }}
+            onClick={(e) => { e.stopPropagation(); onSplit('horizontal'); }}
             title="Split Down (Alt+Shift+E)"
             className="p-1 rounded hover:bg-white/10 hover:text-cyan-400 text-gray-400 transition-colors"
           >
@@ -341,10 +334,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
           {canClose && (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose();
-              }}
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
               title="Close Pane (Ctrl+Shift+X)"
               className="p-1 rounded hover:bg-rose-500/20 hover:text-rose-400 text-gray-400 transition-colors"
             >

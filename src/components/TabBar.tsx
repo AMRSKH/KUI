@@ -1,13 +1,6 @@
 import React from 'react';
-import {
-  Plus,
-  X,
-  Settings,
-  Columns,
-  Rows,
-  Terminal,
-} from 'lucide-react';
-import { TabItem, SplitDirection } from '../types/terminal';
+import { Plus, X, Settings, Terminal } from 'lucide-react';
+import { TabItem } from '../types/terminal';
 
 interface TabBarProps {
   tabs: TabItem[];
@@ -16,7 +9,6 @@ interface TabBarProps {
   onNewTab: () => void;
   onCloseTab: (tabId: string) => void;
   onOpenSettings: () => void;
-  onSplitActive: (direction: SplitDirection) => void;
 }
 
 export const TabBar: React.FC<TabBarProps> = ({
@@ -26,7 +18,6 @@ export const TabBar: React.FC<TabBarProps> = ({
   onNewTab,
   onCloseTab,
   onOpenSettings,
-  onSplitActive,
 }) => {
   return (
     <div
@@ -96,31 +87,12 @@ export const TabBar: React.FC<TabBarProps> = ({
         </button>
       </div>
 
-      {/* Right Controls */}
+      {/* Right Controls — Settings only; split buttons live on each pane header */}
       <div className="flex items-center space-x-1 flex-shrink-0">
         <button
           type="button"
-          onClick={() => onSplitActive('vertical')}
-          title="Split Pane Right (Alt+Shift+D)"
-          className="p-1.5 rounded-lg text-gray-400 hover:text-cyan-400 hover:bg-white/10 transition-colors"
-        >
-          <Columns size={15} />
-        </button>
-        <button
-          type="button"
-          onClick={() => onSplitActive('horizontal')}
-          title="Split Pane Down (Alt+Shift+E)"
-          className="p-1.5 rounded-lg text-gray-400 hover:text-cyan-400 hover:bg-white/10 transition-colors"
-        >
-          <Rows size={15} />
-        </button>
-
-        <div className="w-[1px] h-4 bg-kui-border/80 mx-1" />
-
-        <button
-          type="button"
           onClick={onOpenSettings}
-          title="KUI Settings & Khmer Font Customizer"
+          title="KUI Settings & Khmer Font Customizer (Ctrl+,)"
           className="flex items-center space-x-1 px-2 py-1 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
         >
           <Settings size={15} />

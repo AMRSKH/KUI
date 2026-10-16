@@ -227,11 +227,6 @@ export const App: React.FC = () => {
         onNewTab={handleNewTab}
         onCloseTab={handleCloseTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onSplitActive={(dir) => {
-          if (currentTab?.activeSessionId) {
-            handleSplitPane(currentTab.activeSessionId, dir);
-          }
-        }}
       />
 
       {/* Main Terminal Workspace (Recursive Split Panes) */}
