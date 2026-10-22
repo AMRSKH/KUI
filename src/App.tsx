@@ -222,46 +222,49 @@ export const App: React.FC = () => {
         return;
       }
 
+      // Use physical key codes so shortcuts work with Khmer and other keyboard layouts.
+      // `event.key` changes with the active input language (for example, Khmer).
+
       // Ctrl+Shift+T: New Tab
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
+      if (e.ctrlKey && e.shiftKey && e.code === 'KeyT') {
         e.preventDefault();
         handleNewTab();
       }
       // Ctrl+Shift+W: Close Tab
-      else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'w') {
+      else if (e.ctrlKey && e.shiftKey && e.code === 'KeyW') {
         e.preventDefault();
         if (tabs.length > 1) {
           handleCloseTab(activeTabId);
         }
       }
       // Ctrl+Shift+X: Close Focused Pane
-      else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'x') {
+      else if (e.ctrlKey && e.shiftKey && e.code === 'KeyX') {
         e.preventDefault();
         if (currentTab?.activeSessionId) {
           handleClosePane(currentTab.activeSessionId);
         }
       }
       // Alt+Shift+D: Split Right
-      else if (e.altKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+      else if (e.altKey && e.shiftKey && e.code === 'KeyD') {
         e.preventDefault();
         if (currentTab?.activeSessionId) {
           handleSplitPane(currentTab.activeSessionId, 'vertical');
         }
       }
       // Alt+Shift+E: Split Down
-      else if (e.altKey && e.shiftKey && e.key.toLowerCase() === 'e') {
+      else if (e.altKey && e.shiftKey && e.code === 'KeyE') {
         e.preventDefault();
         if (currentTab?.activeSessionId) {
           handleSplitPane(currentTab.activeSessionId, 'horizontal');
         }
       }
       // Ctrl+, : Toggle Settings
-      else if (e.ctrlKey && e.key === ',') {
+      else if (e.ctrlKey && e.code === 'Comma') {
         e.preventDefault();
         setIsSettingsOpen((v) => !v);
       }
       // Ctrl+= / Ctrl++: Zoom in (Increase Font Size)
-      else if (e.ctrlKey && (e.key === '=' || e.key === '+')) {
+      else if (e.ctrlKey && (e.code === 'Equal' || e.code === 'NumpadAdd')) {
         e.preventDefault();
         setSettings((prev) => {
           const next = { ...prev, fontSize: Math.min(prev.fontSize + 1, 32) };
@@ -270,7 +273,7 @@ export const App: React.FC = () => {
         });
       }
       // Ctrl+-: Zoom out (Decrease Font Size)
-      else if (e.ctrlKey && (e.key === '-' || e.key === '_')) {
+      else if (e.ctrlKey && (e.code === 'Minus' || e.code === 'NumpadSubtract')) {
         e.preventDefault();
         setSettings((prev) => {
           const next = { ...prev, fontSize: Math.max(prev.fontSize - 1, 9) };
@@ -279,7 +282,7 @@ export const App: React.FC = () => {
         });
       }
       // Ctrl+0: Reset Font Size
-      else if (e.ctrlKey && e.key === '0') {
+      else if (e.ctrlKey && (e.code === 'Digit0' || e.code === 'Numpad0')) {
         e.preventDefault();
         setSettings((prev) => {
           const next = { ...prev, fontSize: DEFAULT_SETTINGS.fontSize };
