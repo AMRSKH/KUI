@@ -138,14 +138,22 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
 
       // Allow app global shortcuts to bypass xterm and bubble to window
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+        const code = e.code;
+        const key = e.key ? e.key.toUpperCase() : '';
+        const isD = code === 'KeyD' || key === 'D' || e.key === 'ឌ';
+        const isE = code === 'KeyE' || key === 'E' || e.key === 'ែ';
+        const isX = code === 'KeyX' || key === 'X' || e.key === 'ខ';
+        const isT = code === 'KeyT' || key === 'T' || e.key === 'ធ';
+        const isW = code === 'KeyW' || key === 'W' || e.key === 'ឹ';
+
         const isAppShortcut =
-          (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyT' || e.key === 'T' || e.key === 't' || e.code === 'KeyW' || e.key === 'W' || e.key === 'w' || e.code === 'KeyX' || e.key === 'X' || e.key === 'x')) ||
-          (e.altKey && e.shiftKey && !e.ctrlKey && (e.code === 'KeyD' || e.key === 'D' || e.key === 'd' || e.code === 'KeyE' || e.key === 'E' || e.key === 'e')) ||
-          (e.ctrlKey && !e.shiftKey && !e.altKey && (e.code === 'Comma' || e.key === ',')) ||
-          (e.ctrlKey && !e.altKey && (e.code === 'Equal' || e.code === 'NumpadAdd' || e.key === '=' || e.key === '+')) ||
-          (e.ctrlKey && !e.altKey && (e.code === 'Minus' || e.code === 'NumpadSubtract' || e.key === '-')) ||
-          (e.ctrlKey && !e.altKey && (e.code === 'Digit0' || e.code === 'Numpad0' || e.key === '0')) ||
-          (e.code === 'Escape' || e.key === 'Escape');
+          (e.ctrlKey && e.shiftKey && (isT || isW || isX || isD || isE)) ||
+          (e.altKey && e.shiftKey && (isD || isE)) ||
+          (e.ctrlKey && !e.shiftKey && !e.altKey && (code === 'Comma' || e.key === ',')) ||
+          (e.ctrlKey && !e.altKey && (code === 'Equal' || code === 'NumpadAdd' || e.key === '=' || e.key === '+')) ||
+          (e.ctrlKey && !e.altKey && (code === 'Minus' || code === 'NumpadSubtract' || e.key === '-')) ||
+          (e.ctrlKey && !e.altKey && (code === 'Digit0' || code === 'Numpad0' || e.key === '0')) ||
+          (code === 'Escape' || e.key === 'Escape');
 
         if (isAppShortcut) {
           return false;
@@ -382,7 +390,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onSplit('vertical'); }}
-            title="Split Right (Alt+Shift+D)"
+            title="Split Right (Ctrl+Shift+D / Alt+Shift+D)"
             className="p-1 rounded hover:bg-white/10 hover:text-cyan-400 text-gray-400 transition-colors"
           >
             <Columns size={13} />
@@ -390,7 +398,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onSplit('horizontal'); }}
-            title="Split Down (Alt+Shift+E)"
+            title="Split Down (Ctrl+Shift+E / Alt+Shift+E)"
             className="p-1 rounded hover:bg-white/10 hover:text-cyan-400 text-gray-400 transition-colors"
           >
             <Rows size={13} />

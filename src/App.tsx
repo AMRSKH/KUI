@@ -261,24 +261,28 @@ export const App: React.FC = () => {
         e.stopPropagation();
         handleCloseTab(activeTabId);
       }
-      // Ctrl+Shift+X: Close Focused Pane
-      else if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyX' || e.key === 'X' || e.key === 'x')) {
+      // Ctrl+Shift+X: Close Focused Pane (or close tab if only 1 pane and multiple tabs exist)
+      else if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyX' || e.key === 'X' || e.key === 'x' || e.key === 'ខ')) {
         e.preventDefault();
         e.stopPropagation();
         if (targetSession) {
-          handleClosePane(targetSession);
+          if (tab.rootPane.type === 'split') {
+            handleClosePane(targetSession);
+          } else if (tabs.length > 1) {
+            handleCloseTab(activeTabId);
+          }
         }
       }
-      // Alt+Shift+D: Split Right
-      else if (e.altKey && e.shiftKey && !e.ctrlKey && (e.code === 'KeyD' || e.key === 'D' || e.key === 'd')) {
+      // Ctrl+Shift+D or Alt+Shift+D: Split Right
+      else if ((e.ctrlKey || e.altKey) && e.shiftKey && (e.code === 'KeyD' || e.key === 'D' || e.key === 'd' || e.key === 'ឌ')) {
         e.preventDefault();
         e.stopPropagation();
         if (targetSession) {
           handleSplitPane(targetSession, 'vertical');
         }
       }
-      // Alt+Shift+E: Split Down
-      else if (e.altKey && e.shiftKey && !e.ctrlKey && (e.code === 'KeyE' || e.key === 'E' || e.key === 'e')) {
+      // Ctrl+Shift+E or Alt+Shift+E: Split Down
+      else if ((e.ctrlKey || e.altKey) && e.shiftKey && (e.code === 'KeyE' || e.key === 'E' || e.key === 'e' || e.key === 'ែ')) {
         e.preventDefault();
         e.stopPropagation();
         if (targetSession) {

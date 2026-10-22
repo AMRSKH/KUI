@@ -37,8 +37,8 @@
 | `Ctrl+Shift+T` | បង្កើត Tab ថ្មី |
 | `Ctrl+Shift+W` | បិទ Tab |
 | `Ctrl+Shift+X` | បិទ Pane ដែលកំពុងប្រើ |
-| `Alt+Shift+D` | ពុះ Pane ទៅខាងស្តាំ |
-| `Alt+Shift+E` | ពុះ Pane ទៅខាងក្រោម |
+| `Ctrl+Shift+D` / `Alt+Shift+D` | ពុះ Pane ទៅខាងស្តាំ |
+| `Ctrl+Shift+E` / `Alt+Shift+E` | ពុះ Pane ទៅខាងក្រោម |
 | `Ctrl+,` | បើក/បិទ Settings |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | បង្កើន / បន្ថយ / កំណត់ទំហំ Font ឡើងវិញ |
 | `Esc` | បិទផ្ទាំង Settings |
@@ -104,8 +104,8 @@ npm run tauri:build
 | `Ctrl+Shift+T` | New tab |
 | `Ctrl+Shift+W` | Close tab |
 | `Ctrl+Shift+X` | Close focused pane |
-| `Alt+Shift+D` | Split pane right |
-| `Alt+Shift+E` | Split pane down |
+| `Ctrl+Shift+D` / `Alt+Shift+D` | Split pane right |
+| `Ctrl+Shift+E` / `Alt+Shift+E` | Split pane down |
 | `Ctrl+,` | Toggle settings |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Font zoom in / out / reset |
 | `Esc` | Close settings dialog |
