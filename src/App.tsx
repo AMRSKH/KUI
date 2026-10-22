@@ -14,9 +14,6 @@ export const App: React.FC = () => {
       const saved = localStorage.getItem(SETTINGS_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.lineHeight && parsed.lineHeight > 1.25) {
-          parsed.lineHeight = 1.0;
-        }
         return { ...DEFAULT_SETTINGS, ...parsed };
       }
     } catch {
@@ -194,6 +191,13 @@ export const App: React.FC = () => {
         e.preventDefault();
         if (tabs.length > 1) {
           handleCloseTab(activeTabId);
+        }
+      }
+      // Ctrl+Shift+X: Close Focused Pane
+      else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        if (currentTab?.activeSessionId) {
+          handleClosePane(currentTab.activeSessionId);
         }
       }
       // Alt+Shift+D: Split Right
