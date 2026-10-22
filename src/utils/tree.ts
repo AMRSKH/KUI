@@ -24,6 +24,16 @@ export function findFirstSessionId(node: PaneNode): string | null {
 }
 
 /**
+ * Checks if a session ID exists as a leaf in the tree
+ */
+export function hasLeaf(root: PaneNode, sessionId: string): boolean {
+  if (root.type === 'leaf') {
+    return root.sessionId === sessionId;
+  }
+  return hasLeaf(root.children[0], sessionId) || hasLeaf(root.children[1], sessionId);
+}
+
+/**
  * Splits a target leaf into two children (target and new session)
  */
 export function splitLeaf(
@@ -32,28 +42,36 @@ export function splitLeaf(
   newSessionId: string,
   direction: SplitDirection
 ): PaneNode {
-  if (root.type === 'leaf') {
-    if (root.sessionId === targetSessionId) {
-      return {
-        type: 'split',
-        direction,
-        ratio: 0.5,
-        children: [
-          { type: 'leaf', sessionId: root.sessionId, title: root.title },
-          { type: 'leaf', sessionId: newSessionId, title: 'Terminal' },
-        ],
-      };
+  const targetId = (targetSessionId && hasLeaf(root, targetSessionId))
+    ? targetSessionId
+    : (findFirstSessionId(root) || targetSessionId);
+
+  function doSplit(node: PaneNode): PaneNode {
+    if (node.type === 'leaf') {
+      if (node.sessionId === targetId) {
+        return {
+          type: 'split',
+          direction,
+          ratio: 0.5,
+          children: [
+            { type: 'leaf', sessionId: node.sessionId, title: node.title || 'Terminal' },
+            { type: 'leaf', sessionId: newSessionId, title: 'Terminal' },
+          ],
+        };
+      }
+      return node;
     }
-    return root;
+
+    return {
+      ...node,
+      children: [
+        doSplit(node.children[0]),
+        doSplit(node.children[1]),
+      ],
+    };
   }
 
-  return {
-    ...root,
-    children: [
-      splitLeaf(root.children[0], targetSessionId, newSessionId, direction),
-      splitLeaf(root.children[1], targetSessionId, newSessionId, direction),
-    ],
-  };
+  return doSplit(root);
 }
 
 /**

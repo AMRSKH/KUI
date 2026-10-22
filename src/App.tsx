@@ -208,6 +208,45 @@ export const App: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const code = e.code;
+      const key = e.key ? e.key.toUpperCase() : '';
+      const keyCode = e.keyCode || e.which || 0;
+      const isD = code === 'KeyD' || key === 'D' || keyCode === 68 || e.key === 'ឌ';
+      const isE = code === 'KeyE' || key === 'E' || keyCode === 69 || e.key === 'ែ';
+      const isX = code === 'KeyX' || key === 'X' || keyCode === 88 || e.key === 'ខ';
+      const isT = code === 'KeyT' || key === 'T' || keyCode === 84 || e.key === 'ធ';
+      const isW = code === 'KeyW' || key === 'W' || keyCode === 87 || e.key === 'ឹ';
+
+      const isCtrlShiftX = e.ctrlKey && e.shiftKey && !e.altKey && isX;
+
+      // 1. If Settings modal is open: Ctrl+Shift+X closes it! (DO NOT use Esc per request)
+      if (isSettingsOpen) {
+        if (isCtrlShiftX) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsSettingsOpen(false);
+          return;
+        }
+
+        // If user is typing in a form input in settings, also allow Ctrl+, to toggle
+        const target = e.target as HTMLElement | null;
+        const isFormInput = Boolean(
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        );
+        if (isFormInput) {
+          if (e.ctrlKey && !e.shiftKey && !e.altKey && (code === 'Comma' || e.key === ',' || keyCode === 188)) {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsSettingsOpen(false);
+          }
+          return;
+        }
+      }
+
+      // If user is typing in a general form input, do not execute terminal shortcuts
       const target = e.target as HTMLElement | null;
       const isXterm = Boolean(
         target?.classList?.contains('xterm-helper-textarea') ||
@@ -219,27 +258,7 @@ export const App: React.FC = () => {
           target.tagName === 'TEXTAREA' ||
           target.isContentEditable)
       );
-
-      // Esc: Close Settings modal anywhere (even if focused in a form input)
-      if (e.code === 'Escape' || e.key === 'Escape') {
-        setIsSettingsOpen((open) => {
-          if (open) {
-            e.preventDefault();
-            e.stopPropagation();
-            return false;
-          }
-          return open;
-        });
-        return;
-      }
-
-      // If user is typing in a form input (Settings modal fields), only allow closing settings
       if (isFormInput) {
-        if (e.ctrlKey && !e.shiftKey && !e.altKey && (e.code === 'Comma' || e.key === ',')) {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsSettingsOpen(false);
-        }
         return;
       }
 
@@ -247,22 +266,24 @@ export const App: React.FC = () => {
       const targetSession = tab?.activeSessionId || (tab ? findFirstSessionId(tab.rootPane) : '') || '';
 
       // Ctrl+Shift+T: New Tab
-      if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyT' || e.key === 'T' || e.key === 't')) {
+      if (e.ctrlKey && e.shiftKey && !e.altKey && isT) {
         e.preventDefault();
         e.stopPropagation();
         handleNewTab();
       }
       // Ctrl+Shift+W: Close Tab
-      else if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyW' || e.key === 'W' || e.key === 'w')) {
+      else if (e.ctrlKey && e.shiftKey && !e.altKey && isW) {
         e.preventDefault();
         e.stopPropagation();
         handleCloseTab(activeTabId);
       }
-      // Ctrl+Shift+X: Close Focused Pane (or close tab if only 1 pane and multiple tabs exist)
-      else if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyX' || e.key === 'X' || e.key === 'x' || e.key === 'ខ')) {
+      // Ctrl+Shift+X: Close Settings (if open) or Close Focused Pane (or tab)
+      else if (isCtrlShiftX) {
         e.preventDefault();
         e.stopPropagation();
-        if (targetSession) {
+        if (isSettingsOpen) {
+          setIsSettingsOpen(false);
+        } else if (targetSession) {
           if (tab.rootPane.type === 'split') {
             handleClosePane(targetSession);
           } else if (tabs.length > 1) {
@@ -271,7 +292,7 @@ export const App: React.FC = () => {
         }
       }
       // Ctrl+Shift+D or Alt+Shift+D: Split Right
-      else if ((e.ctrlKey || e.altKey) && e.shiftKey && (e.code === 'KeyD' || e.key === 'D' || e.key === 'd' || e.key === 'ឌ')) {
+      else if ((e.ctrlKey || e.altKey) && e.shiftKey && isD) {
         e.preventDefault();
         e.stopPropagation();
         if (targetSession) {
@@ -279,7 +300,7 @@ export const App: React.FC = () => {
         }
       }
       // Ctrl+Shift+E or Alt+Shift+E: Split Down
-      else if ((e.ctrlKey || e.altKey) && e.shiftKey && (e.code === 'KeyE' || e.key === 'E' || e.key === 'e' || e.key === 'ែ')) {
+      else if ((e.ctrlKey || e.altKey) && e.shiftKey && isE) {
         e.preventDefault();
         e.stopPropagation();
         if (targetSession) {
@@ -287,13 +308,13 @@ export const App: React.FC = () => {
         }
       }
       // Ctrl+, : Toggle Settings
-      else if (e.ctrlKey && !e.shiftKey && !e.altKey && (e.code === 'Comma' || e.key === ',')) {
+      else if (e.ctrlKey && !e.shiftKey && !e.altKey && (code === 'Comma' || e.key === ',' || keyCode === 188)) {
         e.preventDefault();
         e.stopPropagation();
         setIsSettingsOpen((v) => !v);
       }
       // Ctrl+= / Ctrl++: Zoom in (Increase Font Size)
-      else if (e.ctrlKey && !e.altKey && (e.code === 'Equal' || e.code === 'NumpadAdd' || e.key === '=' || e.key === '+')) {
+      else if (e.ctrlKey && !e.altKey && (code === 'Equal' || code === 'NumpadAdd' || e.key === '=' || e.key === '+' || keyCode === 187 || keyCode === 107)) {
         e.preventDefault();
         e.stopPropagation();
         setSettings((prev) => {
@@ -303,7 +324,7 @@ export const App: React.FC = () => {
         });
       }
       // Ctrl+-: Zoom out (Decrease Font Size)
-      else if (e.ctrlKey && !e.altKey && (e.code === 'Minus' || e.code === 'NumpadSubtract' || e.key === '-')) {
+      else if (e.ctrlKey && !e.altKey && (code === 'Minus' || code === 'NumpadSubtract' || e.key === '-' || keyCode === 189 || keyCode === 109)) {
         e.preventDefault();
         e.stopPropagation();
         setSettings((prev) => {
@@ -313,7 +334,7 @@ export const App: React.FC = () => {
         });
       }
       // Ctrl+0: Reset Font Size
-      else if (e.ctrlKey && !e.altKey && !e.shiftKey && (e.code === 'Digit0' || e.code === 'Numpad0' || e.key === '0')) {
+      else if (e.ctrlKey && !e.altKey && !e.shiftKey && (code === 'Digit0' || code === 'Numpad0' || e.key === '0' || keyCode === 48 || keyCode === 96)) {
         e.preventDefault();
         e.stopPropagation();
         setSettings((prev) => {
@@ -334,6 +355,7 @@ export const App: React.FC = () => {
     persistSettings,
     activeTabId,
     tabs,
+    isSettingsOpen,
   ]);
 
   return (

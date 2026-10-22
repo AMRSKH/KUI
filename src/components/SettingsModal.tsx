@@ -34,17 +34,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'font' | 'appearance' | 'terminal'>('font');
 
-  // Close the modal with Escape
+  // Close the modal with Ctrl+Shift+X (no Escape)
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      const code = e.code;
+      const key = e.key ? e.key.toUpperCase() : '';
+      const keyCode = e.keyCode || e.which || 0;
+      const isX = code === 'KeyX' || key === 'X' || keyCode === 88 || e.key === 'ខ';
+
+      if (e.ctrlKey && e.shiftKey && !e.altKey && isX) {
+        e.preventDefault();
         e.stopPropagation();
         onClose();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -76,7 +82,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Close Settings (Esc)"
+            title="Close Settings (Ctrl+Shift+X)"
           >
             <X size={18} />
           </button>
@@ -364,6 +370,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            title="Close Settings (Ctrl+Shift+X)"
             className="px-4 py-1.5 text-xs font-medium rounded-lg bg-kui-accent hover:bg-kui-accentHover text-black font-semibold transition-colors"
           >
             Done

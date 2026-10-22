@@ -136,24 +136,43 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       termRef.current = term;
       fitAddonRef.current = fitAddon;
 
-      // Allow app global shortcuts to bypass xterm and bubble to window
+      // Allow app global shortcuts to bypass xterm and directly trigger pane actions
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         const code = e.code;
         const key = e.key ? e.key.toUpperCase() : '';
-        const isD = code === 'KeyD' || key === 'D' || e.key === 'ឌ';
-        const isE = code === 'KeyE' || key === 'E' || e.key === 'ែ';
-        const isX = code === 'KeyX' || key === 'X' || e.key === 'ខ';
-        const isT = code === 'KeyT' || key === 'T' || e.key === 'ធ';
-        const isW = code === 'KeyW' || key === 'W' || e.key === 'ឹ';
+        const keyCode = e.keyCode || e.which || 0;
+        const isD = code === 'KeyD' || key === 'D' || keyCode === 68 || e.key === 'ឌ';
+        const isE = code === 'KeyE' || key === 'E' || keyCode === 69 || e.key === 'ែ';
+        const isX = code === 'KeyX' || key === 'X' || keyCode === 88 || e.key === 'ខ';
+        const isT = code === 'KeyT' || key === 'T' || keyCode === 84 || e.key === 'ធ';
+        const isW = code === 'KeyW' || key === 'W' || keyCode === 87 || e.key === 'ឹ';
+
+        // Direct split triggers for the active pane
+        if ((e.ctrlKey || e.altKey) && e.shiftKey && isD) {
+          if (e.type === 'keydown') {
+            e.preventDefault();
+            e.stopPropagation();
+            onSplit('vertical');
+          }
+          return false;
+        }
+
+        if ((e.ctrlKey || e.altKey) && e.shiftKey && isE) {
+          if (e.type === 'keydown') {
+            e.preventDefault();
+            e.stopPropagation();
+            onSplit('horizontal');
+          }
+          return false;
+        }
 
         const isAppShortcut =
           (e.ctrlKey && e.shiftKey && (isT || isW || isX || isD || isE)) ||
           (e.altKey && e.shiftKey && (isD || isE)) ||
-          (e.ctrlKey && !e.shiftKey && !e.altKey && (code === 'Comma' || e.key === ',')) ||
-          (e.ctrlKey && !e.altKey && (code === 'Equal' || code === 'NumpadAdd' || e.key === '=' || e.key === '+')) ||
-          (e.ctrlKey && !e.altKey && (code === 'Minus' || code === 'NumpadSubtract' || e.key === '-')) ||
-          (e.ctrlKey && !e.altKey && (code === 'Digit0' || code === 'Numpad0' || e.key === '0')) ||
-          (code === 'Escape' || e.key === 'Escape');
+          (e.ctrlKey && !e.shiftKey && !e.altKey && (code === 'Comma' || e.key === ',' || keyCode === 188)) ||
+          (e.ctrlKey && !e.altKey && (code === 'Equal' || code === 'NumpadAdd' || e.key === '=' || e.key === '+' || keyCode === 187 || keyCode === 107)) ||
+          (e.ctrlKey && !e.altKey && (code === 'Minus' || code === 'NumpadSubtract' || e.key === '-' || keyCode === 189 || keyCode === 109)) ||
+          (e.ctrlKey && !e.altKey && (code === 'Digit0' || code === 'Numpad0' || e.key === '0' || keyCode === 48 || keyCode === 96));
 
         if (isAppShortcut) {
           return false;
