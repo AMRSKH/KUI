@@ -6,7 +6,7 @@
 
 ## ភាសាខ្មែរ
 
-**KUI** គឺជាកម្មវិធី Terminal ទំនើប ស្រាល និងមានល្បឿនលឿន ដែលរចនាឡើងជាពិសេសសម្រាប់គាំទ្រអក្សរខ្មែរ (Khmer Unicode) និងការរៀបចំអត្ថបទស្មុគស្មាញ (Complex Text Layout) នៅលើ Windows។ កម្មវិធីនេះបង្កើតឡើងដោយប្រើប្រាស់ Tauri v2, Rust, React និង xterm.js។
+**KUI** គឺជាកម្មវិធី Desktop Terminal ទំនើប ស្រាល និងមានល្បឿនលឿន ដែលរចនាឡើងជាពិសេសសម្រាប់គាំទ្រអក្សរខ្មែរ (Khmer Unicode) និងការរៀបចំអត្ថបទស្មុគស្មាញ (Complex Text Layout) នៅលើ Windows។ កម្មវិធីនេះបង្កើតឡើងដោយ **AMSCenter** និងជាកម្មសិទ្ធិរបស់ **AMS** ដោយប្រើប្រាស់ Tauri v2, Rust, React និង xterm.js។
 
 ### ✨ លក្ខណៈពិសេសចម្បង
 
@@ -75,12 +75,17 @@ npm run tauri:build
 - **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.7_x64-setup.exe`
 - **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.7_x64_en-US.msi`
 - **Binary ផ្ទាល់:** `src-tauri/target/release/kui.exe`
+ 
+### 👥 ក្រេឌីត និងកម្មសិទ្ធិ (Credits & Ownership)
+
+- **អភិវឌ្ឍន៍ដោយ (Developed by):** AMSCenter
+- **កម្មសិទ្ធិដោយ (Owned by):** AMS
 
 ---
 
 ## English
 
-**KUI** is a modern, lightweight, and high-performance terminal emulator specifically optimized for **Khmer Unicode**, Complex Text Layout (CTL), and Text User Interfaces (TUI) on Windows. Built with **Tauri v2**, **Rust**, **React**, and **xterm.js**.
+**KUI** is a modern, lightweight, and high-performance desktop terminal emulator developed by **AMSCenter** and owned by **AMS**, specifically optimized for **Khmer Unicode**, Complex Text Layout (CTL), and Text User Interfaces (TUI) on Windows. Built with **Tauri v2**, **Rust**, **React**, and **xterm.js**.
 
 ### ✨ Features
 
@@ -149,6 +154,11 @@ The compiled installer packages will be available under:
 - **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.7_x64-setup.exe`
 - **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.7_x64_en-US.msi`
 - **Direct binary:** `src-tauri/target/release/kui.exe`
+
+### 👥 Credits & Ownership
+
+- **Developed by:** AMSCenter
+- **Owned by:** AMS
 
 ---
 

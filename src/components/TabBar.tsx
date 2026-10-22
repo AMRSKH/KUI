@@ -29,7 +29,8 @@ export const TabBar: React.FC<TabBarProps> = ({
         {/* KUI Brand Header / Logo */}
         <div
           data-tauri-drag-region
-          className="flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-gradient-to-r from-cyan-950/60 to-blue-950/40 border border-cyan-800/40 text-cyan-400 font-mono text-xs font-bold tracking-wider shadow-sm select-none mr-1"
+          title="KUI Desktop App — Developed by AMSCenter, Owned by AMS"
+          className="flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-gradient-to-r from-cyan-950/60 to-blue-950/40 border border-cyan-800/40 text-cyan-400 font-mono text-xs font-bold tracking-wider shadow-sm select-none mr-1 cursor-default"
         >
           <Terminal size={14} className="text-cyan-400" />
           <span>KUI</span>

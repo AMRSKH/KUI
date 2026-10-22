@@ -2,6 +2,9 @@
   "name": "kui",
   "private": true,
   "version": "0.1.7",
+  "description": "KUI - Khmer Unicode Desktop Terminal App developed by AMSCenter, owned by AMS",
+  "author": "AMSCenter",
+  "copyright": "AMS",
   "type": "module",
   "scripts": {
     "dev": "vite",

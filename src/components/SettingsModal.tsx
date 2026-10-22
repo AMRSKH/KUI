@@ -356,7 +356,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3 border-t border-kui-border bg-kui-dark/60">
-          <span className="text-xs text-gray-400">Settings automatically sync to all open panes</span>
+          <div className="flex flex-col text-xs text-gray-400 space-y-0.5">
+            <span>Settings automatically sync to all open panes</span>
+            <span className="text-[11px] text-gray-500">
+              KUI Desktop App • Developed by <span className="text-cyan-400 font-medium">AMSCenter</span> • Owned by <span className="text-blue-400 font-medium">AMS</span>
+            </span>
+          </div>
           <button
             onClick={onClose}
             className="px-4 py-1.5 text-xs font-medium rounded-lg bg-kui-accent hover:bg-kui-accentHover text-black font-semibold transition-colors"
