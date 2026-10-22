@@ -47,6 +47,8 @@ export const KHMER_CLUSTER_CASES: ReadonlyArray<string> = [
   'វិធីប្រើកម្មវិធី',
   'សេចក្តី',
   'ព្រះរាជាណាចក្រកម្ពុជា',
+  'ស្រុកខ្មែរ',
+  'ក្រុម',
 ];
 
 /** Marks around a coeng, shifter stacks and standalone marks. */
@@ -66,6 +68,9 @@ export const KHMER_EDGE_CASES: ReadonlyArray<string> = [
   'ក្ណ',
   'ក្ត',
   'ក្ថ',
+  'ក\u200D្ក',
+  'ក\u200C្ក',
+  'ខ្មែរ\u200Bស្រុក',
 ];
 
 /**
@@ -90,7 +95,12 @@ export function runKhmerUnicodeTests(
   const segmenter = new Intl.Segmenter('km', { granularity: 'grapheme' });
 
   for (const sample of samples) {
-    const expected = [...segmenter.segment(sample)].length;
+    let expected = 0;
+    for (const { segment } of segmenter.segment(sample)) {
+      if (segment !== '\u200b') {
+        expected++;
+      }
+    }
     const actual = measureCells(terminal, sample);
     if (actual !== expected) {
       failures.push(`"${sample}": expected ${expected} cells, got ${actual}`);

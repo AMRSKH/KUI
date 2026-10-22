@@ -11,6 +11,7 @@ const KHMER_INDEP_VOWEL_END = 0x17b3;   // ឳ
 const KHMER_COENG = 0x17d2; // ្ (subscript initiator)
 const ZWJ = 0x200d;
 const ZWNJ = 0x200c;
+const ZWSP = 0x200b; // Zero width space
 
 // Spacing (Mc) Khmer vowel signs — they occupy horizontal space on their own.
 const KHMER_SPACING_VOWELS: ReadonlySet<number> = new Set([
@@ -134,8 +135,8 @@ export class KhmerUnicodeProvider implements IUnicodeVersionProvider {
     // ះ and ៈ are spacing marks (Mc) in Unicode, so they keep a width of 1.
     if (isKhmerSign(codepoint) && !KHMER_SPACING_VOWELS.has(codepoint)) return 0;
 
-    // Zero-width joiner & non-joiner
-    if (codepoint === ZWJ || codepoint === ZWNJ) return 0;
+    // Zero-width space, zero-width joiner & non-joiner
+    if (codepoint === ZWJ || codepoint === ZWNJ || codepoint === ZWSP) return 0;
 
     // Khmer consonants and independent vowels have width 1 (base character)
     if (isKhmerConsonant(codepoint)) return 1;
@@ -191,12 +192,26 @@ export class KhmerUnicodeProvider implements IUnicodeVersionProvider {
       return this.extendCluster(state, linked, pending, KIND_SIGN, prevWidth, codepoint);
     }
 
-    // 6. Zero-width joiners
-    if (codepoint === ZWJ || codepoint === ZWNJ) {
+    // 6. Zero-width space, joiners and non-joiners
+    if (codepoint === ZWSP) {
+      // Zero-width space resets the cluster state and takes 0 width
+      return createPropertyValue(STATE_NONE, 0, false);
+    }
+
+    if (codepoint === ZWJ) {
       if (!inCluster) {
         return createPropertyValue(STATE_NONE, 0, false);
       }
       return createPropertyValue(state, prevWidth || 1, true);
+    }
+
+    if (codepoint === ZWNJ) {
+      if (!inCluster) {
+        return createPropertyValue(STATE_NONE, 0, false);
+      }
+      // ZWNJ joins the preceding cluster cell but breaks the conjunct link
+      // so subsequent consonants/coeng do not form subscripts.
+      return createPropertyValue(clusterState(false, false, KIND_SIGN), prevWidth || 1, true);
     }
 
     // 7. Spacing Khmer symbols / punctuation / currency / numbers

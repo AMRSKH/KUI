@@ -109,163 +109,155 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     term.loadAddon(khmerAddon);
     term.loadAddon(webLinksAddon);
 
-    term.open(containerRef.current);
-
-    termRef.current = term;
-    fitAddonRef.current = fitAddon;
-
-    fitAddon.fit();
-
-    // Re-fit and refresh when web fonts (Kantumruy Pro / JetBrains Mono) finish loading
-    if (typeof document !== 'undefined' && document.fonts) {
-      document.fonts.ready.then(() => {
-        handleResize();
-      });
-    }
-
-    const initialCols = term.cols || 80;
-    const initialRows = term.rows || 24;
-
     let onDataDisposable = { dispose: () => {} };
     let onBinaryDisposable = { dispose: () => {} };
     let onResizeDisposable = { dispose: () => {} };
     let unlistenOutput: UnlistenFn | null = null;
     let unlistenClosed: UnlistenFn | null = null;
+    let isDisposed = false;
 
-    if (isTauri) {
-      // === TAURI NATIVE PTY MODE ===
-      setStatusMsg('Connecting...');
-      invoke('spawn_pty', {
-        sessionId,
-        shell: settings.shell.trim() || null,
-        cols: initialCols,
-        rows: initialRows,
-      })
-        .then(() => {
-          setStatusMsg('');
-          // Re-fit and synchronize exact container dimensions with ConPTY immediately
-          if (fitAddonRef.current && termRef.current) {
-            try {
-              fitAddonRef.current.fit();
-              const c = termRef.current.cols;
-              const r = termRef.current.rows;
-              if (c > 0 && r > 0) {
-                invoke('resize_pty', { sessionId, cols: c, rows: r }).catch(() => {});
-              }
-            } catch {
-              // ignore
-            }
+    // Load fonts before opening terminal to prevent overlapping Khmer glyphs
+    const initTerminal = async () => {
+      if (typeof document !== 'undefined' && document.fonts) {
+        try {
+          await document.fonts.ready;
+          await Promise.all([
+            document.fonts.load(`${settings.fontSize}px "${settings.primaryFont}"`),
+            document.fonts.load(`${settings.fontSize}px "${settings.khmerFont}"`),
+          ]);
+        } catch {
+          // Ignore font loading errors and continue
+        }
+      }
+
+      if (isDisposed || !containerRef.current) return;
+
+      term.open(containerRef.current);
+      termRef.current = term;
+      fitAddonRef.current = fitAddon;
+
+      // Allow app global shortcuts to bypass xterm and bubble to window
+      term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+        const isAppShortcut =
+          (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyT' || e.key === 'T' || e.key === 't' || e.code === 'KeyW' || e.key === 'W' || e.key === 'w' || e.code === 'KeyX' || e.key === 'X' || e.key === 'x')) ||
+          (e.altKey && e.shiftKey && !e.ctrlKey && (e.code === 'KeyD' || e.key === 'D' || e.key === 'd' || e.code === 'KeyE' || e.key === 'E' || e.key === 'e')) ||
+          (e.ctrlKey && !e.shiftKey && !e.altKey && (e.code === 'Comma' || e.key === ',')) ||
+          (e.ctrlKey && !e.altKey && (e.code === 'Equal' || e.code === 'NumpadAdd' || e.key === '=' || e.key === '+')) ||
+          (e.ctrlKey && !e.altKey && (e.code === 'Minus' || e.code === 'NumpadSubtract' || e.key === '-')) ||
+          (e.ctrlKey && !e.altKey && (e.code === 'Digit0' || e.code === 'Numpad0' || e.key === '0')) ||
+          (e.code === 'Escape' || e.key === 'Escape');
+
+        if (isAppShortcut) {
+          return false;
+        }
+        return true;
+      });
+
+      term.textarea?.addEventListener('focus', () => {
+        onFocus();
+      });
+
+      // Initial fit after open
+      try {
+        fitAddon.fit();
+      } catch {
+        // Container might be zero-width
+      }
+
+      // Re-fit again once fonts are completely settled
+      if (typeof document !== 'undefined' && document.fonts) {
+        document.fonts.ready.then(() => {
+          if (!isDisposed) {
+            handleResize();
           }
+        });
+      }
+
+      const initialCols = term.cols || 80;
+      const initialRows = term.rows || 24;
+
+      if (isTauri) {
+        // === TAURI NATIVE PTY MODE ===
+        setStatusMsg('Connecting...');
+        invoke('spawn_pty', {
+          sessionId,
+          shell: settings.shell.trim() || null,
+          cols: initialCols,
+          rows: initialRows,
         })
-        .catch((err) => {
-          setStatusMsg('Error');
-          term.writeln(`\r\n\x1b[31;1m[KUI Error]\x1b[0m Failed to spawn shell: ${err}\r\n`);
+          .then(() => {
+            if (isDisposed) return;
+            setStatusMsg('');
+            // Re-fit and synchronize exact container dimensions with ConPTY immediately
+            if (fitAddonRef.current && termRef.current) {
+              try {
+                fitAddonRef.current.fit();
+                const c = termRef.current.cols;
+                const r = termRef.current.rows;
+                if (c > 0 && r > 0) {
+                  invoke('resize_pty', { sessionId, cols: c, rows: r }).catch(() => {});
+                }
+              } catch {
+                // ignore
+              }
+            }
+          })
+          .catch((err) => {
+            if (isDisposed) return;
+            setStatusMsg('Error');
+            term.writeln(`\r\n\x1b[31;1m[KUI Error]\x1b[0m Failed to spawn shell: ${err}\r\n`);
+          });
+
+        // Synchronize PTY size whenever xterm grid changes
+        onResizeDisposable = term.onResize(({ cols, rows }) => {
+          if (cols > 0 && rows > 0) {
+            invoke('resize_pty', { sessionId, cols, rows }).catch(() => {});
+          }
         });
 
-      // Synchronize PTY size whenever xterm grid changes
-      onResizeDisposable = term.onResize(({ cols, rows }) => {
-        if (cols > 0 && rows > 0) {
-          invoke('resize_pty', { sessionId, cols, rows }).catch(() => {});
-        }
-      });
+        // Forward every keypress / paste to the PTY
+        onDataDisposable = term.onData((data) => {
+          invoke('write_to_pty', { sessionId, data }).catch(() => {});
+        });
 
-      // Forward every keypress / paste to the PTY
-      onDataDisposable = term.onData((data) => {
-        invoke('write_to_pty', { sessionId, data }).catch(() => {});
-      });
+        // Forward binary streams
+        onBinaryDisposable = term.onBinary((data) => {
+          invoke('write_to_pty', { sessionId, data }).catch(() => {});
+        });
 
-      // Forward binary streams
-      onBinaryDisposable = term.onBinary((data) => {
-        invoke('write_to_pty', { sessionId, data }).catch(() => {});
-      });
-
-      // Stream PTY output back to xterm
-      listen<PtyOutputPayload>('pty-output', (event) => {
-        if (event.payload.session_id === sessionId) {
-          term.write(event.payload.data);
-        }
-      }).then((unlisten) => {
-        unlistenOutput = unlisten;
-      });
-
-      listen<PtyOutputPayload>('pty-closed', (event) => {
-        if (event.payload.session_id === sessionId) {
-          setStatusMsg('Closed');
-          term.writeln('\r\n\x1b[90m[Process completed — press Enter to dismiss]\x1b[0m');
-        }
-      }).then((unlisten) => {
-        unlistenClosed = unlisten;
-      });
-    } else {
-      // === BROWSER PREVIEW INTERACTIVE SHELL ===
-      const prompt = () => {
-        term.write('\r\n\x1b[36;1mKUI\x1b[0m:\x1b[34m~/khmer-ctl\x1b[0m$ ');
-      };
-
-      term.writeln('\x1b[36;1m   _  ___   _ ___ \x1b[0m');
-      term.writeln('\x1b[36;1m  | |/ / | | |_ _| \x1b[0m \x1b[1mKUI - Khmer Unicode Terminal Emulator\x1b[0m');
-      term.writeln('\x1b[36;1m  | \' /| | | || |  \x1b[0m \x1b[90m[Browser Preview Mode]\x1b[0m');
-      term.writeln('\x1b[36;1m  |_|\\_\\___/|___| \x1b[0m \x1b[32mComplex Text Layout (CTL) & OpenCode Ready\x1b[0m');
-      term.writeln('');
-      term.writeln('\x1b[90m* Type Khmer or English commands below.\x1b[0m');
-      term.writeln('\x1b[90m* Try: \x1b[33mtest-khmer\x1b[90m, \x1b[33mopencode\x1b[90m, \x1b[33mhelp\x1b[90m, \x1b[33mclear\x1b[0m');
-      term.writeln('\x1b[90m* To run native PowerShell shell: \x1b[36mnpm run tauri dev\x1b[0m');
-      prompt();
-
-      let currentLine = '';
-
-      onDataDisposable = term.onData((data) => {
-        if (data === '\r') {
-          term.write('\r\n');
-          const cmd = currentLine.trim();
-          currentLine = '';
-
-          if (cmd === 'test-khmer') {
-            term.writeln('\x1b[36m┌── សាកល្បងអក្សរខ្មែរ (Khmer Unicode CTL & Zero-Clip) ──┐\x1b[0m');
-            term.writeln('\x1b[32m│ សួស្តីពិភពលោក! ខ្ញុំកំពុងសរសេរកូដភាសាខ្មែរលើ KUI    │\x1b[0m');
-            term.writeln('\x1b[33m│ ស្ត្រី កម្ពុជា ស្រឡាញ់ ត្រី ព្រឹក ខ្ញុំបាទ ព្រះវិហារ │\x1b[0m');
-            term.writeln('\x1b[35m│ ជើងអក្សរ: ្ត ្រ ្ក ្ព ្ទ ញ្ជ ង្ក (Zero Clipping)      │\x1b[0m');
-            term.writeln('\x1b[36m└─────────────────────────────────────────────────────┘\x1b[0m');
-          } else if (cmd === 'opencode') {
-            term.writeln('\x1b[34;1m┌── OpenCode TUI ── [Workspace: KUI Terminal] ────────┐\x1b[0m');
-            term.writeln('\x1b[37m│ > ឯកសារ: src/components/TerminalPane.tsx            │\x1b[0m');
-            term.writeln('\x1b[32m│ + Unicode 11 Addon Loaded                           │\x1b[0m');
-            term.writeln('\x1b[32m│ + Fallback: Kantumruy Pro & Noto Sans Khmer         │\x1b[0m');
-            term.writeln('\x1b[33m│ * Line Height: 1.20 (No vertical glyph clipping)    │\x1b[0m');
-            term.writeln('\x1b[34;1m└─────────────────────────────────────────────────────┘\x1b[0m');
-          } else if (cmd === 'clear') {
-            term.clear();
-          } else if (cmd === 'help') {
-            term.writeln('Available preview commands:');
-            term.writeln('  \x1b[33mtest-khmer\x1b[0m  - Display Khmer subscripts & stacked vowels test');
-            term.writeln('  \x1b[33mopencode\x1b[0m    - Simulate OpenCode TUI interface');
-            term.writeln('  \x1b[33mclear\x1b[0m       - Clear terminal screen');
-            term.writeln('  \x1b[33mhelp\x1b[0m        - Show this help message');
-          } else if (cmd.length > 0) {
-            term.writeln(`\x1b[90mCommand received:\x1b[0m ${cmd}`);
+        // Stream PTY output back to xterm
+        listen<PtyOutputPayload>('pty-output', (event) => {
+          if (event.payload.session_id === sessionId) {
+            term.write(event.payload.data);
           }
-          prompt();
-        } else if (data === '\u007F' || data === '\b') {
-          if (currentLine.length > 0) {
-            currentLine = currentLine.slice(0, -1);
-            term.write('\b \b');
-          }
-        } else if (data === '\u0003') {
-          term.write('^C');
-          currentLine = '';
-          prompt();
-        } else {
-          currentLine += data;
-          term.write(data);
-        }
-      });
-    }
+        }).then((unlisten) => {
+          if (isDisposed) unlisten();
+          else unlistenOutput = unlisten;
+        });
 
-    if (isFocused) {
-      term.focus();
-    }
+        listen<PtyOutputPayload>('pty-closed', (event) => {
+          if (event.payload.session_id === sessionId) {
+            setStatusMsg('Closed');
+            term.writeln('\r\n\x1b[90m[Process completed — press Enter to dismiss]\x1b[0m');
+          }
+        }).then((unlisten) => {
+          if (isDisposed) unlisten();
+          else unlistenClosed = unlisten;
+        });
+      } else {
+        term.writeln('\r\n\x1b[33;1m[KUI Desktop]\x1b[0m KUI is designed as a desktop terminal application.');
+        term.writeln('Native PTY requires Tauri desktop runtime (\x1b[36mnpm run tauri dev\x1b[0m or KUI.exe).\r\n');
+      }
+
+      if (isFocused) {
+        term.focus();
+      }
+    };
+
+    initTerminal();
 
     return () => {
+      isDisposed = true;
       onDataDisposable.dispose();
       onBinaryDisposable.dispose();
       onResizeDisposable.dispose();
@@ -291,7 +283,24 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     term.options.cursorStyle = settings.cursorStyle;
     term.options.cursorBlink = settings.cursorBlink;
     term.options.theme = getTheme(settings.theme);
-    handleResize();
+
+    // Re-measure after runtime font changes
+    if (typeof document !== 'undefined' && document.fonts) {
+      Promise.all([
+        document.fonts.ready,
+        document.fonts.load(`${settings.fontSize}px "${settings.primaryFont}"`),
+        document.fonts.load(`${settings.fontSize}px "${settings.khmerFont}"`),
+      ])
+        .then(() => {
+          handleResize();
+          term.refresh(0, term.rows - 1);
+        })
+        .catch(() => {
+          handleResize();
+        });
+    } else {
+      handleResize();
+    }
   }, [settings, computedFontFamily, handleResize]);
 
   // Focus terminal when isFocused becomes true
@@ -332,6 +341,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   return (
     <div
       onClick={onFocus}
+      onFocusCapture={onFocus}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={`relative h-full w-full min-h-0 min-w-0 flex flex-col bg-kui-darker overflow-hidden transition-all duration-150 ${

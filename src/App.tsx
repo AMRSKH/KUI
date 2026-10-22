@@ -87,36 +87,37 @@ export const App: React.FC = () => {
   const handleNewTab = useCallback(() => {
     const newSessionId = crypto.randomUUID();
     const newTabId = crypto.randomUUID();
-    const newTabNumber = tabs.length + 1;
-    const newTab: TabItem = {
-      id: newTabId,
-      title: `Terminal ${newTabNumber}`,
-      rootPane: {
-        type: 'leaf',
-        sessionId: newSessionId,
-        title: 'Terminal',
-      },
-      activeSessionId: newSessionId,
-    };
-    setTabs((prev) => [...prev, newTab]);
+    setTabs((prev) => {
+      const newTabNumber = prev.length + 1;
+      const newTab: TabItem = {
+        id: newTabId,
+        title: `Terminal ${newTabNumber}`,
+        rootPane: {
+          type: 'leaf',
+          sessionId: newSessionId,
+          title: 'Terminal',
+        },
+        activeSessionId: newSessionId,
+      };
+      return [...prev, newTab];
+    });
     setActiveTabId(newTabId);
-  }, [tabs.length]);
+  }, []);
 
   // Close a tab
   const handleCloseTab = useCallback((tabId: string) => {
     setTabs((prev) => {
       if (prev.length <= 1) return prev;
       const filtered = prev.filter((t) => t.id !== tabId);
+      setActiveTabId((currentActive) => {
+        if (currentActive === tabId) {
+          return filtered[filtered.length - 1]?.id || filtered[0]?.id || '';
+        }
+        return currentActive;
+      });
       return filtered;
     });
-    setActiveTabId((currentActive) => {
-      if (currentActive === tabId) {
-        const remaining = tabs.filter((t) => t.id !== tabId);
-        return remaining[0]?.id || '';
-      }
-      return currentActive;
-    });
-  }, [tabs]);
+  }, []);
 
   // Split a pane inside the active tab
   const handleSplitPane = useCallback(
@@ -210,62 +211,90 @@ export const App: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Never steal shortcuts while the user is typing in a text field
-      // (settings inputs, the custom shell field, ...).
       const target = e.target as HTMLElement | null;
-      if (
+      const isXterm = Boolean(
+        target?.classList?.contains('xterm-helper-textarea') ||
+        target?.closest?.('.xterm')
+      );
+      const isFormInput = !isXterm && Boolean(
         target &&
         (target.tagName === 'INPUT' ||
           target.tagName === 'TEXTAREA' ||
           target.isContentEditable)
-      ) {
+      );
+
+      // Esc: Close Settings modal anywhere (even if focused in a form input)
+      if (e.code === 'Escape' || e.key === 'Escape') {
+        setIsSettingsOpen((open) => {
+          if (open) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+          return open;
+        });
         return;
       }
 
-      // Use physical key codes so shortcuts work with Khmer and other keyboard layouts.
-      // `event.key` changes with the active input language (for example, Khmer).
+      // If user is typing in a form input (Settings modal fields), only allow closing settings
+      if (isFormInput) {
+        if (e.ctrlKey && !e.shiftKey && !e.altKey && (e.code === 'Comma' || e.key === ',')) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsSettingsOpen(false);
+        }
+        return;
+      }
+
+      const tab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+      const targetSession = tab?.activeSessionId || (tab ? findFirstSessionId(tab.rootPane) : '') || '';
 
       // Ctrl+Shift+T: New Tab
-      if (e.ctrlKey && e.shiftKey && e.code === 'KeyT') {
+      if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyT' || e.key === 'T' || e.key === 't')) {
         e.preventDefault();
+        e.stopPropagation();
         handleNewTab();
       }
       // Ctrl+Shift+W: Close Tab
-      else if (e.ctrlKey && e.shiftKey && e.code === 'KeyW') {
+      else if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyW' || e.key === 'W' || e.key === 'w')) {
         e.preventDefault();
-        if (tabs.length > 1) {
-          handleCloseTab(activeTabId);
-        }
+        e.stopPropagation();
+        handleCloseTab(activeTabId);
       }
       // Ctrl+Shift+X: Close Focused Pane
-      else if (e.ctrlKey && e.shiftKey && e.code === 'KeyX') {
+      else if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyX' || e.key === 'X' || e.key === 'x')) {
         e.preventDefault();
-        if (currentTab?.activeSessionId) {
-          handleClosePane(currentTab.activeSessionId);
+        e.stopPropagation();
+        if (targetSession) {
+          handleClosePane(targetSession);
         }
       }
       // Alt+Shift+D: Split Right
-      else if (e.altKey && e.shiftKey && e.code === 'KeyD') {
+      else if (e.altKey && e.shiftKey && !e.ctrlKey && (e.code === 'KeyD' || e.key === 'D' || e.key === 'd')) {
         e.preventDefault();
-        if (currentTab?.activeSessionId) {
-          handleSplitPane(currentTab.activeSessionId, 'vertical');
+        e.stopPropagation();
+        if (targetSession) {
+          handleSplitPane(targetSession, 'vertical');
         }
       }
       // Alt+Shift+E: Split Down
-      else if (e.altKey && e.shiftKey && e.code === 'KeyE') {
+      else if (e.altKey && e.shiftKey && !e.ctrlKey && (e.code === 'KeyE' || e.key === 'E' || e.key === 'e')) {
         e.preventDefault();
-        if (currentTab?.activeSessionId) {
-          handleSplitPane(currentTab.activeSessionId, 'horizontal');
+        e.stopPropagation();
+        if (targetSession) {
+          handleSplitPane(targetSession, 'horizontal');
         }
       }
       // Ctrl+, : Toggle Settings
-      else if (e.ctrlKey && e.code === 'Comma') {
+      else if (e.ctrlKey && !e.shiftKey && !e.altKey && (e.code === 'Comma' || e.key === ',')) {
         e.preventDefault();
+        e.stopPropagation();
         setIsSettingsOpen((v) => !v);
       }
       // Ctrl+= / Ctrl++: Zoom in (Increase Font Size)
-      else if (e.ctrlKey && (e.code === 'Equal' || e.code === 'NumpadAdd')) {
+      else if (e.ctrlKey && !e.altKey && (e.code === 'Equal' || e.code === 'NumpadAdd' || e.key === '=' || e.key === '+')) {
         e.preventDefault();
+        e.stopPropagation();
         setSettings((prev) => {
           const next = { ...prev, fontSize: Math.min(prev.fontSize + 1, 32) };
           persistSettings(next);
@@ -273,8 +302,9 @@ export const App: React.FC = () => {
         });
       }
       // Ctrl+-: Zoom out (Decrease Font Size)
-      else if (e.ctrlKey && (e.code === 'Minus' || e.code === 'NumpadSubtract')) {
+      else if (e.ctrlKey && !e.altKey && (e.code === 'Minus' || e.code === 'NumpadSubtract' || e.key === '-')) {
         e.preventDefault();
+        e.stopPropagation();
         setSettings((prev) => {
           const next = { ...prev, fontSize: Math.max(prev.fontSize - 1, 9) };
           persistSettings(next);
@@ -282,8 +312,9 @@ export const App: React.FC = () => {
         });
       }
       // Ctrl+0: Reset Font Size
-      else if (e.ctrlKey && (e.code === 'Digit0' || e.code === 'Numpad0')) {
+      else if (e.ctrlKey && !e.altKey && !e.shiftKey && (e.code === 'Digit0' || e.code === 'Numpad0' || e.key === '0')) {
         e.preventDefault();
+        e.stopPropagation();
         setSettings((prev) => {
           const next = { ...prev, fontSize: DEFAULT_SETTINGS.fontSize };
           persistSettings(next);
@@ -292,8 +323,8 @@ export const App: React.FC = () => {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [
     handleNewTab,
     handleCloseTab,
@@ -301,8 +332,7 @@ export const App: React.FC = () => {
     handleSplitPane,
     persistSettings,
     activeTabId,
-    currentTab,
-    tabs.length,
+    tabs,
   ]);
 
   return (

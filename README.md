@@ -6,7 +6,7 @@
 
 ## ភាសាខ្មែរ
 
-**KUI** គឺជាកម្មវិធី Terminal ទំនើប ស្រាល និងមានល្បឿនលឿន ដែលរចនាឡើងជាពិសេសសម្រាប់គាំទ្រអក្សរខ្មែរ (Khmer Unicode) និងការបង្ហាញពាក្យស្មុគស្មាញ (Complex Text Layout) នៅលើ Windows។ កម្មវិធីនេះបង្កើតឡើងដោយប្រើប្រាស់ Tauri v2, Rust, React និង xterm.js។
+**KUI** គឺជាកម្មវិធី Terminal ទំនើប ស្រាល និងមានល្បឿនលឿន ដែលរចនាឡើងជាពិសេសសម្រាប់គាំទ្រអក្សរខ្មែរ (Khmer Unicode) និងការរៀបចំអត្ថបទស្មុគស្មាញ (Complex Text Layout) នៅលើ Windows។ កម្មវិធីនេះបង្កើតឡើងដោយប្រើប្រាស់ Tauri v2, Rust, React និង xterm.js។
 
 ### ✨ លក្ខណៈពិសេសចម្បង
 
@@ -14,14 +14,14 @@
   - បង្ហាញជើងអក្សរ ស្រៈនិស្ស័យ និងសញ្ញាផ្សេងៗបានយ៉ាងត្រឹមត្រូវ មិនជាន់គ្នា
   - ដោះស្រាយបញ្ហាអក្សររញ៉េរញ៉ៃ ឬទាញជាន់គ្នាដោយសារ letter-spacing
   - រក្សាគម្លាតតួអក្សរ និងទីតាំង Cursor បានស្មើល្អក្នុងប្រព័ន្ធ Grid របស់ Terminal
-  - គណនាទទួលប្រកាសអក្សរខ្មែរដោយ `Intl.Segmenter` ដូច Windows Terminal / iTerm2 (អក្សរមួយស្លោក = កំណត់កន្លែងមួយ)
+  - គណនាទទឹងក្រុមអក្សរខ្មែរ (grapheme cluster) ដោយ `Intl.Segmenter` ដូច Windows Terminal / iTerm2 (ព្យាង្គមួយ = ក្រឡាមួយ (cell))
   - បើកដំណើរការ OpenType Ligatures ដូចជា `liga`, `calt`, `clig`
 - **⚡ ល្បឿនលឿន និងស៊ីធនធានតិច:** ដំណើរការដោយ Rust និង Tauri v2 ភ្ជាប់ជាមួយ Windows ConPTY
 - **🖥️ គាំទ្រកម្មវិធី TUI (OpenCode, lazygit, nano, htop):** រក្សាទម្រង់ប្រអប់ (Box-drawing) និង ASCII art បានត្រង់ជួរ មិនរអិល ឬបែកជួរ
-- **🖥️ ចែកផ្ទាំង និងគ្រប់គ្រង Tab:** អាចពុះផ្ទាំងផ្តេក បញ្ឈរ និងសារ៉េប្រវែងផ្ទាំងតាមចិត្ត
-- **🎨 ស្បែកពណ៌ និងពុម្ពអក្សរ:** មាន Theme ស្អាតៗជាច្រើន (`kui-dark`, `dracula`, `nord`, `catppuccin`, `monokai`, `cyberpunk`, `one-dark`) និងអាចប្តូរ Font បានដូចជា JetBrains Mono, Kantumruy Pro និង Noto Sans Khmer
+- **🖥️ ចែកផ្ទាំង និងគ្រប់គ្រង Tab:** អាចពុះ Pane ផ្ដេក ឬបញ្ឈរ និងកែសម្រួលទំហំតាមចិត្ត
+- **🎨 ស្បែកពណ៌ និងពុម្ពអក្សរ Local:** មាន Theme ស្អាតៗជាច្រើន (`kui-dark`, `dracula`, `nord`, `catppuccin`, `monokai`, `cyberpunk`, `one-dark`) និងបានផ្ទុក Font ក្នុងម៉ាស៊ីនផ្ទាល់ (Local Bundled Fonts) រួមមាន JetBrains Mono, Kantumruy Pro និង Noto Sans Khmer ដោយមិនចាំបាច់មាន Internet។
 - **🪟 ដំណើរការល្អលើ Windows:** រៀបចំប្រព័ន្ធ UTF-8 (`chcp 65001`) ដោយស្វ័យប្រវត្តិសម្រាប់ PowerShell, pwsh, CMD ឬ WSL
-- **🧪 ការសាកល្បងស្វ័យប្រវត្តិ:** `npm test` ពិនិត្យទទួលប្រកាសអក្សរខ្មែរប្រចាំជាក់ដោយប្រើ xterm.js ពិតក្នុង headless browser
+- **🧪 ការសាកល្បងស្វ័យប្រវត្តិ:** `npm test` ផ្ទៀងផ្ទាត់ទទឹងក្រុមអក្សរខ្មែរដោយប្រើ xterm.js ពិតប្រាកដ
 
 ### 🛠️ រចនាសម្ព័ន្ធបច្ចេកវិទ្យា
 
@@ -30,17 +30,17 @@
 - **Terminal Core:** xterm.js ជាមួយ Addon ពិសេស `KhmerUnicodeAddon`
 - **កម្មវិធីដំឡើង:** NSIS (.exe) និង MSI (.msi) សម្រាប់ Windows
 
-### ⌨️ ផ្លូវកាត់កង្គត
+### ⌨️ ផ្លូវកាត់ក្តារចុច (Keyboard Shortcuts)
 
-| ផ្លូវកាត់ | ការត្រូវធ្វើ |
+| ផ្លូវកាត់ | សកម្មភាព |
 | --- | --- |
 | `Ctrl+Shift+T` | បង្កើត Tab ថ្មី |
 | `Ctrl+Shift+W` | បិទ Tab |
 | `Ctrl+Shift+X` | បិទ Pane ដែលកំពុងប្រើ |
-| `Alt+Shift+D` | បែក Pane ទៅសាកល្ម័ង |
-| `Alt+Shift+E` | បែក Pane ទៅខាងក្រោម |
+| `Alt+Shift+D` | ពុះ Pane ទៅខាងស្តាំ |
+| `Alt+Shift+E` | ពុះ Pane ទៅខាងក្រោម |
 | `Ctrl+,` | បើក/បិទ Settings |
-| `Ctrl++` / `Ctrl+-` / `Ctrl+0` | បង្កើន/បង្រួម/កំណត់ទំហំ Font វិញឡើង |
+| `Ctrl++` / `Ctrl+-` / `Ctrl+0` | បង្កើន / បន្ថយ / កំណត់ទំហំ Font ឡើងវិញ |
 | `Esc` | បិទផ្ទាំង Settings |
 
 ### 📦 របៀបបង្កើតកម្មវិធីពី Source Code
@@ -51,20 +51,20 @@
 - [Rust](https://rustup.rs/) (stable x86_64-pc-windows-msvc ឬ mingw64)
 - C++ Build Tools ឬ MinGW-w64
 
-#### ជំហានតម្លើង
+#### ជំហានដំឡើង
 
 ```bash
 # Clone repository នេះ
 git clone https://github.com/AMRSKH/KUI.git
 cd KUI
 
-# តម្លើង dependencies
+# ដំឡើង dependencies
 npm install
 
-# ដំណើរការសាកល្បង (Development Mode)
+# ដំណើរការក្នុងម៉ូដអភិវឌ្ឍន៍ (Development Mode)
 npm run tauri dev
 
-# ការសាកល្បងទទួលប្រកាសអក្សរខ្មែរ
+# សាកល្បងទទឹងក្រុមអក្សរខ្មែរ
 npm test
 
 # បង្កើត Installer សម្រាប់ Windows (NSIS & MSI)
@@ -72,7 +72,9 @@ npm run tauri:build
 ```
 
 ឯកសារ Installer ដែលបង្កើតរួច នឹងស្ថិតនៅក្នុងថត៖
-`src-tauri/target/release/bundle/nsis/`
+- **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.6_x64-setup.exe`
+- **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.6_x64_en-US.msi`
+- **Binary ផ្ទាល់:** `src-tauri/target/release/kui.exe`
 
 ---
 
@@ -91,9 +93,9 @@ npm run tauri:build
 - **⚡ Blazing Fast & Lightweight:** Powered by Rust and Tauri v2 with native Windows ConPTY integration.
 - **💻 TUI & CLI Optimized:** Seamless rendering for rich TUI apps (OpenCode, lazygit, nano, htop) with precise box-drawing, zero horizontal gaps, and synchronized ConPTY dimensions.
 - **🖥️ Multi-Pane & Tabs:** Split panes horizontally or vertically, drag-adjust split ratios, and manage multiple sessions with ease.
-- **🎨 Custom Theming & Typography:** Built-in modern themes (`kui-dark`, `dracula`, `nord`, `catppuccin`, `monokai`, `cyberpunk`, `one-dark`) and configurable font stacks (`JetBrains Mono`, `Kantumruy Pro`, `Noto Sans Khmer`).
+- **🎨 Custom Theming & Bundled Typography:** Built-in modern themes (`kui-dark`, `dracula`, `nord`, `catppuccin`, `monokai`, `cyberpunk`, `one-dark`) and pre-bundled local fonts (`@fontsource/jetbrains-mono`, `@fontsource/kantumruy-pro`, `@fontsource/noto-sans-khmer`) for immediate offline rendering.
 - **🪟 Windows Native Experience:** Automated UTF-8 (`chcp 65001`) configuration for PowerShell, pwsh, CMD, or WSL.
-- **🧪 Automated Verification:** `npm test` validates Khmer cluster widths against a real xterm.js instance in a headless browser.
+- **🧪 Automated Verification:** `npm test` validates Khmer cluster widths against a real xterm.js instance.
 
 ### ⌨️ Keyboard Shortcuts
 
@@ -113,7 +115,7 @@ npm run tauri:build
 - **Backend:** Rust, Tauri v2, `portable-pty`
 - **Frontend:** React 18, TypeScript, Tailwind CSS, Lucide Icons
 - **Terminal Core:** xterm.js with custom `KhmerUnicodeAddon`
-- **Packaging:** NSIS & MSI Windows Installers
+- **Packaging:** NSIS (.exe) & WiX MSI (.msi) Windows Installers
 
 ### 📦 Building from Source
 
@@ -143,8 +145,10 @@ npm test
 npm run tauri:build
 ```
 
-The compiled installer will be available under:
-`src-tauri/target/release/bundle/nsis/`
+The compiled installer packages will be available under:
+- **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.6_x64-setup.exe`
+- **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.6_x64_en-US.msi`
+- **Direct binary:** `src-tauri/target/release/kui.exe`
 
 ---
 
