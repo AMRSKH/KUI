@@ -87,23 +87,27 @@ export const SplitPaneContainer: React.FC<SplitPaneContainerProps> = ({
     [isVertical, ratio, children, onUpdateRatio]
   );
 
-  const firstStyle = isVertical
-    ? { width: `${ratio * 100}%` }
-    : { height: `${ratio * 100}%` };
+  const firstStyle: React.CSSProperties = isVertical
+    ? { flex: `${ratio} 1 0%`, width: 0, minWidth: 0 }
+    : { flex: `${ratio} 1 0%`, height: 0, minHeight: 0 };
 
-  const secondStyle = isVertical
-    ? { width: `${(1 - ratio) * 100}%` }
-    : { height: `${(1 - ratio) * 100}%` };
+  const secondStyle: React.CSSProperties = isVertical
+    ? { flex: `${1 - ratio} 1 0%`, width: 0, minWidth: 0 }
+    : { flex: `${1 - ratio} 1 0%`, height: 0, minHeight: 0 };
 
   return (
     <div
       ref={containerRef}
       className={`h-full w-full flex ${
         isVertical ? 'flex-row' : 'flex-col'
-      } overflow-hidden relative select-none`}
+      } overflow-hidden relative ${isDragging ? 'select-none' : ''}`}
     >
       {/* First Child Pane */}
-      <div style={firstStyle} className="w-full h-full min-w-0 min-h-0 overflow-hidden">
+      <div
+        key={children[0].type === 'leaf' ? children[0].sessionId : 'split-0'}
+        style={firstStyle}
+        className="h-full w-full min-w-0 min-h-0 overflow-hidden relative"
+      >
         <SplitPaneContainer
           node={children[0]}
           activeSessionId={activeSessionId}
@@ -133,7 +137,11 @@ export const SplitPaneContainer: React.FC<SplitPaneContainerProps> = ({
       </div>
 
       {/* Second Child Pane */}
-      <div style={secondStyle} className="w-full h-full min-w-0 min-h-0 overflow-hidden">
+      <div
+        key={children[1].type === 'leaf' ? children[1].sessionId : 'split-1'}
+        style={secondStyle}
+        className="h-full w-full min-w-0 min-h-0 overflow-hidden relative"
+      >
         <SplitPaneContainer
           node={children[1]}
           activeSessionId={activeSessionId}

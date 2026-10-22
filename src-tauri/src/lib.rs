@@ -32,6 +32,13 @@ fn spawn_pty(
     app_handle: AppHandle,
     state: State<AppState>,
 ) -> Result<(), String> {
+    {
+        let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+        if sessions.contains_key(&session_id) {
+            return Ok(());
+        }
+    }
+
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {

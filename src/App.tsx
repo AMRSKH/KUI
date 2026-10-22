@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { TabItem, TerminalSettings, DEFAULT_SETTINGS, SplitDirection } from './types/terminal';
-import { splitLeaf, removeLeaf, updateSplitRatio, findFirstSessionId, hasLeaf } from './utils/tree';
+import { splitLeaf, removeLeaf, updateSplitRatio, findFirstSessionId, hasLeaf, collectSessionIds } from './utils/tree';
 import { TabBar } from './components/TabBar';
 import { SplitPaneContainer } from './components/SplitPaneContainer';
 import { SettingsModal } from './components/SettingsModal';
+import { destroySession, destroySessions, updateAllSessionsSettings } from './utils/terminalSessions';
 
 const SETTINGS_KEY = 'kui-terminal-settings';
 const SETTINGS_VERSION_KEY = 'kui-terminal-settings-version';
@@ -79,6 +80,7 @@ export const App: React.FC = () => {
     (newSettings: TerminalSettings) => {
       setSettings(newSettings);
       persistSettings(newSettings);
+      updateAllSessionsSettings(newSettings);
     },
     [persistSettings]
   );
@@ -108,6 +110,10 @@ export const App: React.FC = () => {
   const handleCloseTab = useCallback((tabId: string) => {
     setTabs((prev) => {
       if (prev.length <= 1) return prev;
+      const targetTab = prev.find((t) => t.id === tabId);
+      if (targetTab) {
+        destroySessions(collectSessionIds(targetTab.rootPane));
+      }
       const filtered = prev.filter((t) => t.id !== tabId);
       setActiveTabId((currentActive) => {
         if (currentActive === tabId) {
@@ -147,6 +153,7 @@ export const App: React.FC = () => {
   // Close a pane inside the active tab
   const handleClosePane = useCallback(
     (targetSessionId: string) => {
+      destroySession(targetSessionId);
       setTabs((prev) =>
         prev.map((tab) => {
           if (tab.id !== activeTabId) return tab;
@@ -334,6 +341,7 @@ export const App: React.FC = () => {
         setSettings((prev) => {
           const next = { ...prev, fontSize: Math.min(prev.fontSize + 1, 32) };
           persistSettings(next);
+          updateAllSessionsSettings(next);
           return next;
         });
       }
@@ -344,6 +352,7 @@ export const App: React.FC = () => {
         setSettings((prev) => {
           const next = { ...prev, fontSize: Math.max(prev.fontSize - 1, 9) };
           persistSettings(next);
+          updateAllSessionsSettings(next);
           return next;
         });
       }
@@ -354,6 +363,7 @@ export const App: React.FC = () => {
         setSettings((prev) => {
           const next = { ...prev, fontSize: DEFAULT_SETTINGS.fontSize };
           persistSettings(next);
+          updateAllSessionsSettings(next);
           return next;
         });
       }
