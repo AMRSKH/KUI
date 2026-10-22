@@ -56,13 +56,19 @@ fn spawn_pty(
                     "powershell.exe".to_string()
                 };
 
-                let args = if exe.to_lowercase().ends_with("powershell.exe") {
+                let args = if exe.to_lowercase().ends_with("powershell.exe")
+                    || exe.to_lowercase().ends_with("pwsh.exe")
+                {
                     vec![
                         "-NoLogo".to_string(),
                         "-NoExit".to_string(),
                         "-Command".to_string(),
                         "[Console]::InputEncoding = [Console]::OutputEncoding = $OutputEncoding = [System.Text.Encoding]::UTF8; chcp 65001 | Out-Null".to_string(),
                     ]
+                } else if exe.to_lowercase().ends_with("cmd.exe") {
+                    // Switch the console to UTF-8 so Khmer input/output is not
+                    // mangled by the OEM code page.
+                    vec!["/K".to_string(), "chcp 65001 > nul".to_string()]
                 } else {
                     vec![]
                 };

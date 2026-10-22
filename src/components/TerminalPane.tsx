@@ -7,7 +7,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { Columns, Rows, X, Terminal as TerminalIcon } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
-import { TerminalSettings, SplitDirection } from '../types/terminal';
+import { TerminalSettings, SplitDirection, DEFAULT_SETTINGS } from '../types/terminal';
 import { getTheme } from '../utils/theme';
 
 interface TerminalPaneProps {
@@ -82,7 +82,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       allowProposedApi: true,
       fontFamily: computedFontFamily,
       fontSize: settings.fontSize,
-      lineHeight: settings.lineHeight || 1.0,
+      // 1.2 is the minimum height that fits Khmer stacked glyphs (ជើង)
+      lineHeight: settings.lineHeight || DEFAULT_SETTINGS.lineHeight,
       letterSpacing: 0,
       cursorStyle: settings.cursorStyle,
       cursorBlink: settings.cursorBlink,
@@ -90,7 +91,9 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       scrollback: 5000,
       cursorInactiveStyle: 'outline',
       convertEol: true,
-      windowsMode: false,
+      // ConPTY on Windows 11 (>= 21376) handles wrapping natively, so xterm.js
+      // must not assume lines are wrapped (this replaces the deprecated
+      // `windowsMode` option).
       windowsPty: {
         backend: 'conpty',
         buildNumber: 22000,
@@ -228,7 +231,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
             term.writeln('\x1b[37m│ > ឯកសារ: src/components/TerminalPane.tsx            │\x1b[0m');
             term.writeln('\x1b[32m│ + Unicode 11 Addon Loaded                           │\x1b[0m');
             term.writeln('\x1b[32m│ + Fallback: Kantumruy Pro & Noto Sans Khmer         │\x1b[0m');
-            term.writeln('\x1b[33m│ * Line Height: 1.35 (No vertical glyph clipping)    │\x1b[0m');
+            term.writeln('\x1b[33m│ * Line Height: 1.20 (No vertical glyph clipping)    │\x1b[0m');
             term.writeln('\x1b[34;1m└─────────────────────────────────────────────────────┘\x1b[0m');
           } else if (cmd === 'clear') {
             term.clear();

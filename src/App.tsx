@@ -6,6 +6,26 @@ import { SplitPaneContainer } from './components/SplitPaneContainer';
 import { SettingsModal } from './components/SettingsModal';
 
 const SETTINGS_KEY = 'kui-terminal-settings';
+const SETTINGS_VERSION_KEY = 'kui-terminal-settings-version';
+// Bump whenever the stored settings need to be migrated.
+const SETTINGS_VERSION = 2;
+
+/**
+ * Migrates settings that were stored by an older version of KUI.
+ * v2: Khmer stacked glyphs (ជើង) need more vertical room than the old 1.0
+ *     line height, otherwise the subscripts are clipped.
+ */
+function migrateSettings(parsed: Record<string, unknown>): Record<string, unknown> {
+  const version = Number(localStorage.getItem(SETTINGS_VERSION_KEY) || '1');
+  if (version >= SETTINGS_VERSION) return parsed;
+
+  const next = { ...parsed };
+  const lineHeight = Number(next.lineHeight);
+  if (!Number.isFinite(lineHeight) || lineHeight < DEFAULT_SETTINGS.lineHeight) {
+    next.lineHeight = DEFAULT_SETTINGS.lineHeight;
+  }
+  return next;
+}
 
 export const App: React.FC = () => {
   // Load settings from localStorage
@@ -13,7 +33,7 @@ export const App: React.FC = () => {
     try {
       const saved = localStorage.getItem(SETTINGS_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
+        const parsed = migrateSettings(JSON.parse(saved));
         return { ...DEFAULT_SETTINGS, ...parsed };
       }
     } catch {
@@ -44,15 +64,24 @@ export const App: React.FC = () => {
 
   const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0].id);
 
-  // Save settings on update
-  const handleUpdateSettings = useCallback((newSettings: TerminalSettings) => {
-    setSettings(newSettings);
+  // Persist settings (and the schema version) to localStorage
+  const persistSettings = useCallback((next: TerminalSettings) => {
     try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+      localStorage.setItem(SETTINGS_VERSION_KEY, String(SETTINGS_VERSION));
     } catch {
       // Ignore storage errors
     }
   }, []);
+
+  // Save settings on update
+  const handleUpdateSettings = useCallback(
+    (newSettings: TerminalSettings) => {
+      setSettings(newSettings);
+      persistSettings(newSettings);
+    },
+    [persistSettings]
+  );
 
   // Create a new tab
   const handleNewTab = useCallback(() => {
@@ -181,6 +210,18 @@ export const App: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Never steal shortcuts while the user is typing in a text field
+      // (settings inputs, the custom shell field, ...).
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
       // Ctrl+Shift+T: New Tab
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
         e.preventDefault();
@@ -224,7 +265,7 @@ export const App: React.FC = () => {
         e.preventDefault();
         setSettings((prev) => {
           const next = { ...prev, fontSize: Math.min(prev.fontSize + 1, 32) };
-          try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)); } catch {}
+          persistSettings(next);
           return next;
         });
       }
@@ -233,7 +274,7 @@ export const App: React.FC = () => {
         e.preventDefault();
         setSettings((prev) => {
           const next = { ...prev, fontSize: Math.max(prev.fontSize - 1, 9) };
-          try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)); } catch {}
+          persistSettings(next);
           return next;
         });
       }
@@ -242,7 +283,7 @@ export const App: React.FC = () => {
         e.preventDefault();
         setSettings((prev) => {
           const next = { ...prev, fontSize: DEFAULT_SETTINGS.fontSize };
-          try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)); } catch {}
+          persistSettings(next);
           return next;
         });
       }
@@ -250,7 +291,16 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNewTab, handleCloseTab, handleSplitPane, activeTabId, currentTab, tabs.length]);
+  }, [
+    handleNewTab,
+    handleCloseTab,
+    handleClosePane,
+    handleSplitPane,
+    persistSettings,
+    activeTabId,
+    currentTab,
+    tabs.length,
+  ]);
 
   return (
     <div className="h-full w-full flex flex-col bg-kui-darker text-gray-100 font-sans overflow-hidden">

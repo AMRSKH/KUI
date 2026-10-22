@@ -92,7 +92,11 @@ export function removeLeaf(root: PaneNode, targetSessionId: string): PaneNode | 
 }
 
 /**
- * Updates ratio of a split node identified by path or reference
+ * Updates the ratio of the split node whose *left* subtree starts with
+ * targetFirstChildSessionId.
+ *
+ * The identifier is the first leaf of the left child, so nested splits
+ * (a split whose left child is itself a split) can be resized too.
  */
 export function updateSplitRatio(
   root: PaneNode,
@@ -103,16 +107,13 @@ export function updateSplitRatio(
     return root;
   }
 
-  const leftSessionIds = collectSessionIds(root.children[0]);
-  if (leftSessionIds.includes(targetFirstChildSessionId)) {
-    // If the target is directly the first child's first leaf or contained within
-    // check if this is the direct split node
-    if (root.children[0].type === 'leaf' && root.children[0].sessionId === targetFirstChildSessionId) {
-      return {
-        ...root,
-        ratio: Math.min(Math.max(newRatio, 0.1), 0.9),
-      };
-    }
+  // The divider that is being dragged is the one whose left side contains the
+  // given leaf. Match on the first leaf so nested splits resolve correctly.
+  if (findFirstSessionId(root.children[0]) === targetFirstChildSessionId) {
+    return {
+      ...root,
+      ratio: Math.min(Math.max(newRatio, 0.1), 0.9),
+    };
   }
 
   return {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Sliders, Type, Palette, Terminal as TerminalIcon, Sparkles } from 'lucide-react';
 import { TerminalSettings } from '../types/terminal';
 import { THEMES } from '../utils/theme';
@@ -33,6 +33,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateSettings,
 }) => {
   const [activeTab, setActiveTab] = useState<'font' | 'appearance' | 'terminal'>('font');
+
+  // Close the modal with Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -201,7 +214,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <input
                     type="range"
-                    min="1.0"
+                    min="1.2"
                     max="1.8"
                     step="0.05"
                     value={settings.lineHeight}
@@ -209,9 +222,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="w-full accent-cyan-500 cursor-pointer"
                   />
                   <div className="flex justify-between text-[10px] text-gray-500">
-                    <span>1.00 (Standard)</span>
-                    <span>1.15</span>
+                    <span>1.20 (Khmer safe)</span>
                     <span>1.50</span>
+                    <span>1.80</span>
                   </div>
                 </div>
               </div>

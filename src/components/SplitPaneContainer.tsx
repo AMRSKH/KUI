@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { PaneNode, SplitDirection, TerminalSettings } from '../types/terminal';
+import { findFirstSessionId } from '../utils/tree';
 import { TerminalPane } from './TerminalPane';
 
 interface SplitPaneContainerProps {
@@ -65,11 +66,10 @@ export const SplitPaneContainer: React.FC<SplitPaneContainerProps> = ({
         const deltaRatio = delta / totalSize;
         const newRatio = Math.min(Math.max(initialRatio + deltaRatio, 0.1), 0.9);
 
-        // Find identifier for this split node
-        const firstLeafId =
-          children[0].type === 'leaf'
-            ? children[0].sessionId
-            : '';
+        // Identify the divider by the first leaf of its left side. Using the
+        // first leaf (instead of only a direct leaf child) keeps nested
+        // splits resizable.
+        const firstLeafId = findFirstSessionId(children[0]);
         if (firstLeafId) {
           onUpdateRatio(firstLeafId, newRatio);
         }
