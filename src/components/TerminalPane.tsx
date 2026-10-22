@@ -3,7 +3,7 @@ import { Columns, Rows, X, Terminal as TerminalIcon } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
 import { TerminalSettings, SplitDirection } from '../types/terminal';
 import {
-  getOrCreateSession,
+  attachSession,
   updateSessionSettings,
   getSession,
   isTauriEnv,
@@ -69,39 +69,24 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const session = getOrCreateSession(sessionId, settings);
-
-    // Sync callbacks
-    session.onFocus = () => onFocusRef.current?.();
-    session.onSplit = (dir) => onSplitRef.current?.(dir);
-    session.onClose = () => onCloseRef.current?.();
-
-    // Subscribe to status updates
     const onStatus = (msg: string) => setStatusMsg(msg);
-    session.statusSubscribers.add(onStatus);
+
+    const session = attachSession(
+      sessionId,
+      containerRef.current,
+      settings,
+      isFocused,
+      {
+        onFocus: () => onFocusRef.current?.(),
+        onSplit: (dir) => onSplitRef.current?.(dir),
+        onClose: () => onCloseRef.current?.(),
+        onStatusChange: onStatus,
+      }
+    );
+
     setStatusMsg(session.statusMsg);
 
-    // Attach persistent terminal DOM element to this container
-    const container = containerRef.current;
-    if (session.domElement.parentElement !== container) {
-      container.innerHTML = '';
-      container.appendChild(session.domElement);
-    }
-
-    // Measure & fit cleanly across animation frames
-    const rafId = requestAnimationFrame(() => {
-      try {
-        session.fitAddon.fit();
-        if (isFocused) {
-          session.term.focus();
-        }
-      } catch {
-        // ignore
-      }
-    });
-
     return () => {
-      cancelAnimationFrame(rafId);
       session.statusSubscribers.delete(onStatus);
     };
   }, [sessionId, settings, isFocused]);

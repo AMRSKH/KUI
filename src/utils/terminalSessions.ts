@@ -30,7 +30,6 @@ export interface ManagedSession {
   fitAddon: FitAddon;
   khmerAddon: KhmerUnicodeAddon;
   webLinksAddon: WebLinksAddon;
-  domElement: HTMLDivElement;
   isPtySpawned: boolean;
   unlistenOutput?: UnlistenFn;
   unlistenClosed?: UnlistenFn;
@@ -51,18 +50,58 @@ export function computeFontFamily(settings: TerminalSettings): string {
   return `"${settings.primaryFont}", "${settings.khmerFont}", "Kantumruy Pro", "Noto Sans Khmer", "Leelawadee UI", "Khmer UI", "DaunPenh", "Segoe UI", monospace`;
 }
 
-export function getOrCreateSession(
+/**
+ * Attaches an existing session or initializes a fresh terminal into the live container.
+ * Must be called with a container that is attached to the DOM document.
+ */
+export function attachSession(
   sessionId: string,
-  settings: TerminalSettings
+  container: HTMLDivElement,
+  settings: TerminalSettings,
+  isFocused: boolean,
+  callbacks: {
+    onSplit?: (direction: SplitDirection) => void;
+    onClose?: () => void;
+    onFocus?: () => void;
+    onStatusChange?: (status: string) => void;
+  }
 ): ManagedSession {
-  const existing = sessions.get(sessionId);
-  if (existing) {
-    return existing;
+  let session = sessions.get(sessionId);
+
+  if (session) {
+    // Session already exists (e.g. re-parenting across layout split)
+    session.onSplit = callbacks.onSplit;
+    session.onClose = callbacks.onClose;
+    session.onFocus = callbacks.onFocus;
+
+    if (callbacks.onStatusChange) {
+      session.statusSubscribers.add(callbacks.onStatusChange);
+      callbacks.onStatusChange(session.statusMsg);
+    }
+
+    // Move existing xterm DOM element into this container if not already there
+    if (session.term.element && session.term.element.parentElement !== container) {
+      container.innerHTML = '';
+      container.appendChild(session.term.element);
+    }
+
+    requestAnimationFrame(() => {
+      try {
+        session?.fitAddon.fit();
+        if (isFocused) {
+          session?.term.focus();
+        }
+      } catch {
+        // ignore
+      }
+    });
+
+    return session;
   }
 
+  // Brand new session initialization
   const fontFamily = computeFontFamily(settings);
 
-  // 1. Initialize Terminal with Khmer CTL & cluster-aware Unicode support
   const term = new Terminal({
     allowProposedApi: true,
     fontFamily,
@@ -89,23 +128,29 @@ export function getOrCreateSession(
   term.loadAddon(khmerAddon);
   term.loadAddon(webLinksAddon);
 
-  const domElement = document.createElement('div');
-  domElement.className = 'w-full h-full overflow-hidden';
-  term.open(domElement);
+  // Open directly into the live, connected container so character measuring is exact
+  term.open(container);
 
-  const session: ManagedSession = {
+  session = {
     sessionId,
     term,
     fitAddon,
     khmerAddon,
     webLinksAddon,
-    domElement,
     isPtySpawned: false,
     statusMsg: '',
     statusSubscribers: new Set(),
+    onSplit: callbacks.onSplit,
+    onClose: callbacks.onClose,
+    onFocus: callbacks.onFocus,
   };
 
+  if (callbacks.onStatusChange) {
+    session.statusSubscribers.add(callbacks.onStatusChange);
+  }
+
   const updateStatus = (msg: string) => {
+    if (!session) return;
     session.statusMsg = msg;
     for (const sub of session.statusSubscribers) {
       sub(msg);
@@ -135,7 +180,7 @@ export function getOrCreateSession(
       if (e.type === 'keydown') {
         e.preventDefault();
         e.stopPropagation();
-        session.onSplit?.('vertical');
+        session?.onSplit?.('vertical');
       }
       return false;
     }
@@ -144,7 +189,7 @@ export function getOrCreateSession(
       if (e.type === 'keydown') {
         e.preventDefault();
         e.stopPropagation();
-        session.onSplit?.('horizontal');
+        session?.onSplit?.('horizontal');
       }
       return false;
     }
@@ -164,7 +209,7 @@ export function getOrCreateSession(
   });
 
   term.textarea?.addEventListener('focus', () => {
-    session.onFocus?.();
+    session?.onFocus?.();
   });
 
   term.onResize(({ cols, rows }) => {
@@ -187,6 +232,13 @@ export function getOrCreateSession(
 
   sessions.set(sessionId, session);
 
+  // Initial fit
+  try {
+    fitAddon.fit();
+  } catch {
+    // ignore
+  }
+
   // Spawn PTY or Browser shell
   const initPty = async () => {
     if (session.isPtySpawned) return;
@@ -195,8 +247,8 @@ export function getOrCreateSession(
     if (isTauriEnv()) {
       updateStatus('Connecting...');
 
-      // Crucial: Register IPC listeners BEFORE spawning shell so output is never dropped
       try {
+        // Register listeners BEFORE spawning shell so output is never dropped
         const [unlistenOutput, unlistenClosed] = await Promise.all([
           listen<PtyOutputPayload>('pty-output', (event) => {
             if (event.payload.session_id === sessionId) {
@@ -245,6 +297,10 @@ export function getOrCreateSession(
       term.writeln('\r\n\x1b[33;1m[KUI Desktop]\x1b[0m KUI is designed as a desktop terminal application.');
       term.writeln('Native PTY requires Tauri desktop runtime (\x1b[36mnpm run tauri dev\x1b[0m or KUI.exe).\r\n');
     }
+
+    if (isFocused) {
+      term.focus();
+    }
   };
 
   initPty();
@@ -260,7 +316,6 @@ export function destroySession(sessionId: string): void {
   session.unlistenClosed?.();
   session.statusSubscribers.clear();
   session.term.dispose();
-  session.domElement.remove();
   sessions.delete(sessionId);
 
   if (isTauriEnv()) {
