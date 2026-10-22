@@ -311,12 +311,15 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     }
   }, [settings, computedFontFamily, handleResize]);
 
-  // Focus terminal when isFocused becomes true
+  // Focus terminal and re-fit when isFocused becomes true (e.g. switching tabs)
   useEffect(() => {
     if (isFocused && termRef.current) {
-      termRef.current.focus();
+      requestAnimationFrame(() => {
+        handleResize();
+        termRef.current?.focus();
+      });
     }
-  }, [isFocused]);
+  }, [isFocused, handleResize]);
 
   // Responsive ResizeObserver & Window Resize handler for all window sizes & DPIs
   useEffect(() => {

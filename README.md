@@ -72,8 +72,8 @@ npm run tauri:build
 ```
 
 ឯកសារ Installer ដែលបង្កើតរួច នឹងស្ថិតនៅក្នុងថត៖
-- **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.6_x64-setup.exe`
-- **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.6_x64_en-US.msi`
+- **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.7_x64-setup.exe`
+- **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.7_x64_en-US.msi`
 - **Binary ផ្ទាល់:** `src-tauri/target/release/kui.exe`
 
 ---
@@ -146,8 +146,8 @@ npm run tauri:build
 ```
 
 The compiled installer packages will be available under:
-- **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.6_x64-setup.exe`
-- **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.6_x64_en-US.msi`
+- **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.7_x64-setup.exe`
+- **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.7_x64_en-US.msi`
 - **Direct binary:** `src-tauri/target/release/kui.exe`
 
 ---

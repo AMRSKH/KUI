@@ -205,9 +205,6 @@ export const App: React.FC = () => {
     [activeTabId]
   );
 
-  // Active tab reference
-  const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
-
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -351,20 +348,30 @@ export const App: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      {/* Main Terminal Workspace (Recursive Split Panes) */}
+      {/* Main Terminal Workspace (Persistent Tabs across switching) */}
       <div className="flex-1 w-full min-h-0 overflow-hidden relative">
-        {currentTab && (
-          <SplitPaneContainer
-            node={currentTab.rootPane}
-            activeSessionId={currentTab.activeSessionId}
-            settings={settings}
-            canClose={currentTab.rootPane.type === 'split'}
-            onFocusSession={handleFocusSession}
-            onSplitPane={handleSplitPane}
-            onClosePane={handleClosePane}
-            onUpdateRatio={handleUpdateRatio}
-          />
-        )}
+        {tabs.map((tab) => {
+          const isActive = tab.id === activeTabId;
+          return (
+            <div
+              key={tab.id}
+              className={`absolute inset-0 h-full w-full ${
+                isActive ? 'block' : 'hidden'
+              }`}
+            >
+              <SplitPaneContainer
+                node={tab.rootPane}
+                activeSessionId={isActive ? tab.activeSessionId : ''}
+                settings={settings}
+                canClose={tab.rootPane.type === 'split'}
+                onFocusSession={handleFocusSession}
+                onSplitPane={handleSplitPane}
+                onClosePane={handleClosePane}
+                onUpdateRatio={handleUpdateRatio}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Settings Modal */}
