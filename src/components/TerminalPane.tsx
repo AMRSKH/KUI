@@ -54,6 +54,17 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
+  // Keep fresh references to callbacks to prevent stale closure bugs
+  const onSplitRef = useRef(onSplit);
+  useEffect(() => {
+    onSplitRef.current = onSplit;
+  }, [onSplit]);
+
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   // Compute font family chain specifically tailored for Khmer CTL + Monospace
   const computedFontFamily = `"${settings.primaryFont}", "${settings.khmerFont}", "Kantumruy Pro", "Noto Sans Khmer", "Leelawadee UI", "Khmer UI", "DaunPenh", "Segoe UI", monospace`;
 
@@ -141,27 +152,35 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
         const code = e.code;
         const key = e.key ? e.key.toUpperCase() : '';
         const keyCode = e.keyCode || e.which || 0;
-        const isD = code === 'KeyD' || key === 'D' || keyCode === 68 || e.key === 'ឌ';
-        const isE = code === 'KeyE' || key === 'E' || keyCode === 69 || e.key === 'ែ';
+        const isD = code === 'KeyD' || key === 'D' || keyCode === 68 || e.key === 'ឌ' || e.key === 'ដ';
+        const isE = code === 'KeyE' || key === 'E' || keyCode === 69 || e.key === 'ែ' || e.key === 'េ';
         const isX = code === 'KeyX' || key === 'X' || keyCode === 88 || e.key === 'ខ';
         const isT = code === 'KeyT' || key === 'T' || keyCode === 84 || e.key === 'ធ';
         const isW = code === 'KeyW' || key === 'W' || keyCode === 87 || e.key === 'ឹ';
 
+        const isSplitRight =
+          (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isD) ||
+          ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowRight');
+
+        const isSplitDown =
+          (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isE) ||
+          ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowDown');
+
         // Direct split triggers for the active pane
-        if ((e.ctrlKey || e.altKey) && e.shiftKey && isD) {
+        if (isSplitRight) {
           if (e.type === 'keydown') {
             e.preventDefault();
             e.stopPropagation();
-            onSplit('vertical');
+            onSplitRef.current?.('vertical');
           }
           return false;
         }
 
-        if ((e.ctrlKey || e.altKey) && e.shiftKey && isE) {
+        if (isSplitDown) {
           if (e.type === 'keydown') {
             e.preventDefault();
             e.stopPropagation();
-            onSplit('horizontal');
+            onSplitRef.current?.('horizontal');
           }
           return false;
         }
@@ -374,6 +393,31 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       onFocusCapture={onFocus}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onKeyDownCapture={(e) => {
+        const code = e.code;
+        const key = e.key ? e.key.toUpperCase() : '';
+        const keyCode = e.keyCode || e.which || 0;
+        const isD = code === 'KeyD' || key === 'D' || keyCode === 68 || e.key === 'ឌ' || e.key === 'ដ';
+        const isE = code === 'KeyE' || key === 'E' || keyCode === 69 || e.key === 'ែ' || e.key === 'េ';
+
+        const isSplitRight =
+          (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isD) ||
+          ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowRight');
+
+        const isSplitDown =
+          (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isE) ||
+          ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowDown');
+
+        if (isSplitRight) {
+          e.preventDefault();
+          e.stopPropagation();
+          onSplitRef.current?.('vertical');
+        } else if (isSplitDown) {
+          e.preventDefault();
+          e.stopPropagation();
+          onSplitRef.current?.('horizontal');
+        }
+      }}
       className={`relative h-full w-full min-h-0 min-w-0 flex flex-col bg-kui-darker overflow-hidden transition-all duration-150 ${
         isFocused
           ? 'ring-1 ring-kui-accent/80 shadow-[inset_0_0_10px_rgba(6,182,212,0.12)]'

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { TabItem, TerminalSettings, DEFAULT_SETTINGS, SplitDirection } from './types/terminal';
-import { splitLeaf, removeLeaf, updateSplitRatio, findFirstSessionId } from './utils/tree';
+import { splitLeaf, removeLeaf, updateSplitRatio, findFirstSessionId, hasLeaf } from './utils/tree';
 import { TabBar } from './components/TabBar';
 import { SplitPaneContainer } from './components/SplitPaneContainer';
 import { SettingsModal } from './components/SettingsModal';
@@ -119,21 +119,27 @@ export const App: React.FC = () => {
     });
   }, []);
 
-  // Split a pane inside the active tab
+  // Split a pane inside whichever tab contains the target session (or activeTabId)
   const handleSplitPane = useCallback(
     (targetSessionId: string, direction: SplitDirection) => {
       const newSessionId = crypto.randomUUID();
-      setTabs((prev) =>
-        prev.map((tab) => {
-          if (tab.id !== activeTabId) return tab;
+      setTabs((prev) => {
+        const targetTab =
+          prev.find((t) => hasLeaf(t.rootPane, targetSessionId)) ||
+          prev.find((t) => t.id === activeTabId) ||
+          prev[0];
+        if (!targetTab) return prev;
+
+        return prev.map((tab) => {
+          if (tab.id !== targetTab.id) return tab;
           const updatedTree = splitLeaf(tab.rootPane, targetSessionId, newSessionId, direction);
           return {
             ...tab,
             rootPane: updatedTree,
             activeSessionId: newSessionId,
           };
-        })
-      );
+        });
+      });
     },
     [activeTabId]
   );
@@ -211,11 +217,19 @@ export const App: React.FC = () => {
       const code = e.code;
       const key = e.key ? e.key.toUpperCase() : '';
       const keyCode = e.keyCode || e.which || 0;
-      const isD = code === 'KeyD' || key === 'D' || keyCode === 68 || e.key === 'ឌ';
-      const isE = code === 'KeyE' || key === 'E' || keyCode === 69 || e.key === 'ែ';
+      const isD = code === 'KeyD' || key === 'D' || keyCode === 68 || e.key === 'ឌ' || e.key === 'ដ';
+      const isE = code === 'KeyE' || key === 'E' || keyCode === 69 || e.key === 'ែ' || e.key === 'េ';
       const isX = code === 'KeyX' || key === 'X' || keyCode === 88 || e.key === 'ខ';
       const isT = code === 'KeyT' || key === 'T' || keyCode === 84 || e.key === 'ធ';
       const isW = code === 'KeyW' || key === 'W' || keyCode === 87 || e.key === 'ឹ';
+
+      const isSplitRight =
+        (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isD) ||
+        ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowRight');
+
+      const isSplitDown =
+        (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isE) ||
+        ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowDown');
 
       const isCtrlShiftX = e.ctrlKey && e.shiftKey && !e.altKey && isX;
 
@@ -291,16 +305,16 @@ export const App: React.FC = () => {
           }
         }
       }
-      // Ctrl+Shift+D or Alt+Shift+D: Split Right
-      else if ((e.ctrlKey || e.altKey) && e.shiftKey && isD) {
+      // Split Right: Ctrl+Shift+D / Alt+Shift+D / Ctrl+Alt+D / Ctrl+Shift+Right
+      else if (isSplitRight) {
         e.preventDefault();
         e.stopPropagation();
         if (targetSession) {
           handleSplitPane(targetSession, 'vertical');
         }
       }
-      // Ctrl+Shift+E or Alt+Shift+E: Split Down
-      else if ((e.ctrlKey || e.altKey) && e.shiftKey && isE) {
+      // Split Down: Ctrl+Shift+E / Alt+Shift+E / Ctrl+Alt+E / Ctrl+Shift+Down
+      else if (isSplitDown) {
         e.preventDefault();
         e.stopPropagation();
         if (targetSession) {
