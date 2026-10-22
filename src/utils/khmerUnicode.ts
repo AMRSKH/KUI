@@ -23,6 +23,10 @@ function createPropertyValue(state: number, width: number, shouldJoin: boolean):
   return ((state & 0xffffff) << 3) | ((width & 3) << 1) | (shouldJoin ? 1 : 0);
 }
 
+function extractWidth(prop: number): number {
+  return (prop >> 1) & 0x3;
+}
+
 export function isKhmerConsonant(code: number): boolean {
   return (code >= KHMER_CONSONANT_START && code <= KHMER_CONSONANT_END) ||
          (code >= KHMER_INDEP_VOWEL_START && code <= KHMER_INDEP_VOWEL_END);
@@ -86,27 +90,30 @@ export class KhmerUnicodeProvider implements IUnicodeVersionProvider {
 
   public charProperties(codepoint: number, preceding: number): number {
     const prevState = preceding >> 3;
+    const prevWidth = extractWidth(preceding);
 
     // 1. Khmer Sign Coeng (្) — initiates subscript (ជើង)
     // Coeng must join the preceding base consonant or preceding subscript consonant
     if (codepoint === KHMER_COENG) {
       const canJoin = prevState === STATE_BASE || prevState === STATE_SUBSCRIPT;
-      return createPropertyValue(STATE_COENG, canJoin ? 0 : 1, canJoin);
+      const width = canJoin ? (prevWidth || 1) : 1;
+      return createPropertyValue(STATE_COENG, width, canJoin);
     }
 
     // 2. Consonant immediately following Coeng (្ + Consonant) -> SUBSCRIPT CONSONANT (ជើង)
     // In Khmer typography, subscript consonants stack vertically beneath the base consonant.
-    // They MUST join the same terminal cell (width 0, shouldJoin = true) so the font's OpenType
-    // GSUB table can shape them into a single subscript ligature.
+    // They MUST join the same terminal cell so the font's OpenType GSUB table can shape them.
     if (prevState === STATE_COENG && isKhmerConsonant(codepoint)) {
-      return createPropertyValue(STATE_SUBSCRIPT, 0, true);
+      const width = prevWidth || 1;
+      return createPropertyValue(STATE_SUBSCRIPT, width, true);
     }
 
     // 3. Consonant Shifters (៉ Muusikatoan, ៊ Triisap)
     // Sits above base consonant or subscript before vowels
     if (isKhmerShifter(codepoint)) {
       const canJoin = prevState === STATE_BASE || prevState === STATE_SUBSCRIPT;
-      return createPropertyValue(STATE_SHIFTER, canJoin ? 0 : 1, canJoin);
+      const width = canJoin ? (prevWidth || 1) : 1;
+      return createPropertyValue(STATE_SHIFTER, width, canJoin);
     }
 
     // 4. Khmer Dependent Vowels (e.g. ា, ិ, ី, ឹ, ឺ, ុ, ូ, ួ, ើ, ឿ, ៀ, េ, ែ, ៃ, ោ, ៅ)
@@ -115,19 +122,23 @@ export class KhmerUnicodeProvider implements IUnicodeVersionProvider {
     // avoiding the bug where multiple consecutive vowels collapse into one tangled mess!
     if (isKhmerDependentVowel(codepoint)) {
       const canJoin = prevState === STATE_BASE || prevState === STATE_SUBSCRIPT || prevState === STATE_SHIFTER;
-      return createPropertyValue(STATE_VOWEL, canJoin ? 0 : 1, canJoin);
+      const width = canJoin ? (prevWidth || 1) : 1;
+      return createPropertyValue(STATE_VOWEL, width, canJoin);
     }
 
     // 5. Khmer Final Signs & Diacritics (e.g. ំ, ះ, ៈ, ់, ៌, ៍, ៎, ៏, ័, ៑, etc.)
     // These stack at the end of a syllable after a base, subscript, shifter, or vowel.
     if (isKhmerSign(codepoint)) {
       const canJoin = prevState === STATE_BASE || prevState === STATE_SUBSCRIPT || prevState === STATE_SHIFTER || prevState === STATE_VOWEL;
-      return createPropertyValue(STATE_SIGN, canJoin ? 0 : 1, canJoin);
+      const width = canJoin ? (prevWidth || 1) : 1;
+      return createPropertyValue(STATE_SIGN, width, canJoin);
     }
 
     // 6. Zero-width joiners
     if (codepoint === ZWJ || codepoint === ZWNJ) {
-      return createPropertyValue(prevState, 0, prevState !== STATE_NONE);
+      const canJoin = prevState !== STATE_NONE;
+      const width = canJoin ? (prevWidth || 1) : 0;
+      return createPropertyValue(prevState, width, canJoin);
     }
 
     // 7. Khmer base consonants and independent vowels (starting a new cluster)
