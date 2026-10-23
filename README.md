@@ -3,7 +3,7 @@
   <h1>KUI (Khmer Terminal UI) 🚀</h1>
   <p><strong>A lightweight, blazing-fast terminal built for Windows with first-class Khmer Unicode support.</strong></p>
   <p>
-    <a href="#ភាសាខ្មែរ">ភាសាខ្មែរ</a> • <a href="#english">English</a>
+    <a href="#ភាសាខ្មែរ">ភាសាខ្មែរ</a> • <a href="#english">English</a> • <a href="CHANGELOG.md">Release Notes</a>
   </p>
 </div>
 
@@ -76,9 +76,13 @@ npm run tauri:build
 ```
 
 ឯកសារ Installer ដែលបង្កើតរួច នឹងស្ថិតនៅក្នុងថត៖
-- **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.7_x64-setup.exe`
-- **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.7_x64_en-US.msi`
+- **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.8_x64-setup.exe`
+- **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.8_x64_en-US.msi`
 - **Binary ផ្ទាល់:** `src-tauri/target/release/kui.exe`
+
+### 📋 កំណត់ចំណាំការចេញផ្សាយ (Release Notes)
+
+មើលព័ត៌មានលម្អិតអំពីកំណែអាប់ដេត និងការជួសជុលទាំងអស់នៅក្នុង [CHANGELOG.md](CHANGELOG.md)។
  
 ### 👥 ក្រេឌីត និងកម្មសិទ្ធិ (Credits & Ownership)
 
@@ -102,7 +106,7 @@ npm run tauri:build
 - **⚡ Blazing Fast & Lightweight:** Powered by Rust and Tauri v2 with native Windows ConPTY integration.
 - **💻 TUI & CLI Optimized:** Seamless rendering for rich TUI apps (OpenCode, lazygit, nano, htop) with precise box-drawing, zero horizontal gaps, and synchronized ConPTY dimensions.
 - **🖥️ Multi-Pane & Tabs:** Split panes horizontally or vertically, drag-adjust split ratios, and manage multiple sessions with ease.
-- **🎨 Custom Theming & Bundled Typography:** Built-in modern themes (`kui-dark`, `dracula`, `nord`, `catppuccin`, `monokai`, `cyberpunk`, `one-dark`) and pre-bundled local fonts (`@fontsource/jetbrains-mono`, `@fontsource/kantumruy-pro`, `@fontsource/noto-sans-khmer`) for immediate offline rendering.
+- **🎨 Custom Theming & Typography:** Built-in modern themes (`kui-dark`, `dracula`, `nord`, `catppuccin`, `monokai`, `cyberpunk`, `one-dark`) and full OpenType typography support (JetBrains Mono, Kantumruy Pro, Noto Sans Khmer).
 - **🪟 Windows Native Experience:** Automated UTF-8 (`chcp 65001`) configuration for PowerShell, pwsh, CMD, or WSL.
 - **🧪 Automated Verification:** `npm test` validates Khmer cluster widths against a real xterm.js instance.
 
@@ -154,9 +158,13 @@ npm run tauri:build
 ```
 
 The compiled installer packages will be available under:
-- **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.7_x64-setup.exe`
-- **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.7_x64_en-US.msi`
+- **NSIS Setup (.exe):** `src-tauri/target/release/bundle/nsis/KUI_0.1.8_x64-setup.exe`
+- **WiX MSI (.msi):** `src-tauri/target/release/bundle/msi/KUI_0.1.8_x64_en-US.msi`
 - **Direct binary:** `src-tauri/target/release/kui.exe`
+
+### 📋 Release Notes
+
+Detailed release history and changelog notes are maintained in [CHANGELOG.md](CHANGELOG.md).
 
 ### 👥 Credits & Ownership
 
