@@ -1,14 +1,15 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Columns, Rows, X, Terminal as TerminalIcon } from 'lucide-react';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { KhmerUnicodeAddon } from '../utils/khmerUnicode';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { TerminalSettings, SplitDirection } from '../types/terminal';
-import {
-  attachSession,
-  updateSessionSettings,
-  getSession,
-  isTauriEnv,
-} from '../utils/terminalSessions';
+import { computeFontFamily, isTauriEnv, PtyOutputPayload } from '../utils/terminalSessions';
+import { getTheme } from '../utils/theme';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 interface TerminalPaneProps {
   sessionId: string;
@@ -30,6 +31,9 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   canClose,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+
   const [isHovered, setIsHovered] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
@@ -49,90 +53,254 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  // Safely resize PTY
-  const handleResize = useCallback(() => {
-    const session = getSession(sessionId);
-    if (!session || !containerRef.current) return;
-    try {
-      session.fitAddon.fit();
-      const cols = session.term.cols;
-      const rows = session.term.rows;
-      if (isTauriEnv() && cols > 0 && rows > 0) {
-        invoke('resize_pty', { sessionId, cols, rows }).catch(() => {});
-      }
-    } catch {
-      // Container might be animating or zero-width
-    }
-  }, [sessionId]);
+  const isFocusedRef = useRef(isFocused);
+  useEffect(() => {
+    isFocusedRef.current = isFocused;
+  }, [isFocused]);
 
-  // Connect or mount persistent session
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  // Terminal lifecycle (mount once per pane)
   useEffect(() => {
     if (!containerRef.current) return;
+    const container = containerRef.current;
 
-    const onStatus = (msg: string) => setStatusMsg(msg);
+    const fontFamily = computeFontFamily(settingsRef.current);
+    const term = new Terminal({
+      allowProposedApi: true,
+      fontFamily,
+      fontSize: settingsRef.current.fontSize,
+      lineHeight: settingsRef.current.lineHeight || 1.2,
+      letterSpacing: 0,
+      cursorStyle: settingsRef.current.cursorStyle,
+      cursorBlink: settingsRef.current.cursorBlink,
+      theme: getTheme(settingsRef.current.theme),
+      scrollback: 5000,
+      cursorInactiveStyle: 'outline',
+      convertEol: true,
+      windowsPty: {
+        backend: 'conpty',
+        buildNumber: 22000,
+      },
+    });
 
-    const session = attachSession(
-      sessionId,
-      containerRef.current,
-      settings,
-      isFocused,
-      {
-        onFocus: () => onFocusRef.current?.(),
-        onSplit: (dir) => onSplitRef.current?.(dir),
-        onClose: () => onCloseRef.current?.(),
-        onStatusChange: onStatus,
+    const fitAddon = new FitAddon();
+    const khmerAddon = new KhmerUnicodeAddon();
+    const webLinksAddon = new WebLinksAddon();
+
+    term.loadAddon(fitAddon);
+    term.loadAddon(khmerAddon);
+    term.loadAddon(webLinksAddon);
+
+    term.open(container);
+    termRef.current = term;
+    fitAddonRef.current = fitAddon;
+
+    const safeFit = () => {
+      try {
+        if (!container || container.clientWidth === 0 || container.clientHeight === 0) {
+          return;
+        }
+        fitAddon.fit();
+        const cols = term.cols;
+        const rows = term.rows;
+        if (isTauriEnv() && cols > 0 && rows > 0) {
+          invoke('resize_pty', { sessionId, cols, rows }).catch(() => {});
+        }
+      } catch {
+        // ignore
       }
-    );
-
-    setStatusMsg(session.statusMsg);
-
-    return () => {
-      session.statusSubscribers.delete(onStatus);
     };
-  }, [sessionId, settings, isFocused]);
 
-  // Update terminal settings in real-time without restarting shell
-  useEffect(() => {
-    updateSessionSettings(sessionId, settings);
-  }, [sessionId, settings]);
+    // Keyboard shortcut routing
+    term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+      const code = e.code;
+      const key = e.key ? e.key.toUpperCase() : '';
+      const keyCode = e.keyCode || e.which || 0;
+      const isD = code === 'KeyD' || key === 'D' || keyCode === 68 || e.key === 'ឌ' || e.key === 'ដ';
+      const isE = code === 'KeyE' || key === 'E' || keyCode === 69 || e.key === 'ែ' || e.key === 'េ';
+      const isX = code === 'KeyX' || key === 'X' || keyCode === 88 || e.key === 'ខ';
+      const isT = code === 'KeyT' || key === 'T' || keyCode === 84 || e.key === 'ធ';
+      const isW = code === 'KeyW' || key === 'W' || keyCode === 87 || e.key === 'ឹ';
 
-  // Focus terminal and re-fit when isFocused becomes true (e.g. switching tabs / panes)
-  useEffect(() => {
-    if (isFocused) {
-      const rafId = requestAnimationFrame(() => {
-        handleResize();
-        const session = getSession(sessionId);
-        session?.term.focus();
-      });
-      return () => cancelAnimationFrame(rafId);
-    }
-  }, [isFocused, handleResize, sessionId]);
+      const isSplitRight =
+        (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isD) ||
+        ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowRight');
 
-  // Responsive ResizeObserver & Window Resize handler
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const el = containerRef.current;
+      const isSplitDown =
+        (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isE) ||
+        ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowDown');
+
+      if (isSplitRight) {
+        if (e.type === 'keydown') {
+          e.preventDefault();
+          e.stopPropagation();
+          onSplitRef.current?.('vertical');
+        }
+        return false;
+      }
+
+      if (isSplitDown) {
+        if (e.type === 'keydown') {
+          e.preventDefault();
+          e.stopPropagation();
+          onSplitRef.current?.('horizontal');
+        }
+        return false;
+      }
+
+      const isAppShortcut =
+        (e.ctrlKey && e.shiftKey && (isT || isW || isX || isD || isE)) ||
+        (e.altKey && e.shiftKey && (isD || isE)) ||
+        (e.ctrlKey && !e.shiftKey && !e.altKey && (code === 'Comma' || e.key === ',' || keyCode === 188)) ||
+        (e.ctrlKey && !e.altKey && (code === 'Equal' || code === 'NumpadAdd' || e.key === '=' || e.key === '+' || keyCode === 187 || keyCode === 107)) ||
+        (e.ctrlKey && !e.altKey && (code === 'Minus' || code === 'NumpadSubtract' || e.key === '-' || keyCode === 189 || keyCode === 109)) ||
+        (e.ctrlKey && !e.altKey && (code === 'Digit0' || code === 'Numpad0' || e.key === '0' || keyCode === 48 || keyCode === 96));
+
+      if (isAppShortcut) {
+        return false;
+      }
+      return true;
+    });
+
+    term.textarea?.addEventListener('focus', () => {
+      onFocusRef.current?.();
+    });
+
+    term.onData((data) => {
+      if (isTauriEnv()) {
+        invoke('write_to_pty', { sessionId, data }).catch(() => {});
+      }
+    });
+
+    term.onBinary((data) => {
+      if (isTauriEnv()) {
+        invoke('write_to_pty', { sessionId, data }).catch(() => {});
+      }
+    });
+
+    // ResizeObserver for responsive layout changes
     let rafId: number | null = null;
-
     const triggerFit = () => {
       if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        handleResize();
-      });
+      rafId = requestAnimationFrame(safeFit);
     };
 
-    const observer = new ResizeObserver(triggerFit);
-    observer.observe(el);
-
+    const ro = new ResizeObserver(triggerFit);
+    ro.observe(container);
     window.addEventListener('resize', triggerFit);
+
+    // Initial fit
     triggerFit();
 
+    // Spawn PTY process
+    let unlistenOutput: (() => void) | undefined;
+    let unlistenClosed: (() => void) | undefined;
+
+    const initPty = async () => {
+      if (isTauriEnv()) {
+        setStatusMsg('Connecting...');
+        try {
+          const [unOutput, unClosed] = await Promise.all([
+            listen<PtyOutputPayload>('pty-output', (event) => {
+              if (event.payload.session_id === sessionId) {
+                term.write(event.payload.data);
+              }
+            }),
+            listen<PtyOutputPayload>('pty-closed', (event) => {
+              if (event.payload.session_id === sessionId) {
+                setStatusMsg('Closed');
+                term.writeln('\r\n\x1b[90m[Process completed — press Enter to dismiss]\x1b[0m');
+              }
+            }),
+          ]);
+
+          unlistenOutput = unOutput;
+          unlistenClosed = unClosed;
+
+          triggerFit();
+
+          const initialCols = term.cols > 0 ? term.cols : 80;
+          const initialRows = term.rows > 0 ? term.rows : 24;
+
+          await invoke('spawn_pty', {
+            sessionId,
+            shell: settingsRef.current.shell.trim() || null,
+            cols: initialCols,
+            rows: initialRows,
+          });
+
+          setStatusMsg('');
+          triggerFit();
+        } catch (err) {
+          setStatusMsg('Error');
+          term.writeln(`\r\n\x1b[31;1m[KUI Error]\x1b[0m Failed to spawn shell: ${err}\r\n`);
+        }
+      } else {
+        term.writeln('\r\n\x1b[33;1m[KUI Desktop]\x1b[0m KUI is running in browser preview.');
+        term.writeln('Native PTY requires Tauri desktop runtime (KUI.exe).\r\n');
+      }
+
+      if (isFocusedRef.current) {
+        term.focus();
+      }
+    };
+
+    initPty();
+
     return () => {
-      observer.disconnect();
+      ro.disconnect();
       window.removeEventListener('resize', triggerFit);
       if (rafId) cancelAnimationFrame(rafId);
+      unlistenOutput?.();
+      unlistenClosed?.();
+      term.dispose();
+      if (isTauriEnv()) {
+        invoke('kill_pty', { sessionId }).catch(() => {});
+      }
     };
-  }, [handleResize]);
+  }, [sessionId]);
+
+  // Update terminal settings in real time
+  useEffect(() => {
+    const term = termRef.current;
+    const fitAddon = fitAddonRef.current;
+    if (!term || !fitAddon) return;
+
+    term.options.fontFamily = computeFontFamily(settings);
+    term.options.fontSize = settings.fontSize;
+    term.options.lineHeight = settings.lineHeight;
+    term.options.cursorStyle = settings.cursorStyle;
+    term.options.cursorBlink = settings.cursorBlink;
+    term.options.theme = getTheme(settings.theme);
+
+    try {
+      fitAddon.fit();
+      term.refresh(0, term.rows - 1);
+    } catch {
+      // ignore
+    }
+  }, [settings]);
+
+  // Focus and re-fit when isFocused changes
+  useEffect(() => {
+    if (isFocused) {
+      const raf = requestAnimationFrame(() => {
+        try {
+          if (containerRef.current && containerRef.current.clientWidth > 0) {
+            fitAddonRef.current?.fit();
+          }
+          termRef.current?.focus();
+        } catch {
+          // ignore
+        }
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [isFocused]);
 
   return (
     <div
@@ -194,7 +362,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
           )}
         </div>
 
-        {/* Pane Action Controls — split & close for THIS pane only */}
+        {/* Pane Action Controls */}
         <div
           className={`flex items-center space-x-1 transition-opacity ${
             isHovered || isFocused ? 'opacity-100' : 'opacity-0'
@@ -238,7 +406,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
         </div>
       </div>
 
-      {/* xterm.js Canvas / DOM Container (Zero-padding to prevent edge clipping) */}
+      {/* xterm.js DOM Container */}
       <div
         ref={containerRef}
         className="flex-1 w-full min-h-0 min-w-0 overflow-hidden bg-transparent"

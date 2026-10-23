@@ -112,9 +112,6 @@ export function removeLeaf(root: PaneNode, targetSessionId: string): PaneNode | 
 /**
  * Updates the ratio of the split node whose *left* subtree starts with
  * targetFirstChildSessionId.
- *
- * The identifier is the first leaf of the left child, so nested splits
- * (a split whose left child is itself a split) can be resized too.
  */
 export function updateSplitRatio(
   root: PaneNode,
@@ -125,8 +122,6 @@ export function updateSplitRatio(
     return root;
   }
 
-  // The divider that is being dragged is the one whose left side contains the
-  // given leaf. Match on the first leaf so nested splits resolve correctly.
   if (findFirstSessionId(root.children[0]) === targetFirstChildSessionId) {
     return {
       ...root,
@@ -141,4 +136,117 @@ export function updateSplitRatio(
       updateSplitRatio(root.children[1], targetFirstChildSessionId, newRatio),
     ],
   };
+}
+
+export interface PaneRect {
+  left: number; // percentage 0-100
+  top: number;  // percentage 0-100
+  width: number; // percentage 0-100
+  height: number; // percentage 0-100
+}
+
+export interface LeafPaneLayout {
+  sessionId: string;
+  title?: string;
+  rect: PaneRect;
+}
+
+export interface SplitDividerLayout {
+  id: string; // first leaf ID of left child
+  direction: SplitDirection;
+  ratio: number;
+  containerRect: PaneRect; // The bounding box of this split in %
+  position: number;        // left% (for vertical) or top% (for horizontal)
+  start: number;           // top% (for vertical) or left% (for horizontal)
+  length: number;          // height% (for vertical) or width% (for horizontal)
+}
+
+export interface ComputedLayout {
+  leaves: LeafPaneLayout[];
+  dividers: SplitDividerLayout[];
+}
+
+/**
+ * Computes deterministic absolute percentage rectangles for all leaves and divider lines.
+ * This guarantees that leaf components never unmount when the tree is split or resized.
+ */
+export function computeLayout(
+  node: PaneNode,
+  rect: PaneRect = { left: 0, top: 0, width: 100, height: 100 }
+): ComputedLayout {
+  const leaves: LeafPaneLayout[] = [];
+  const dividers: SplitDividerLayout[] = [];
+
+  function traverse(currNode: PaneNode, currRect: PaneRect) {
+    if (currNode.type === 'leaf') {
+      leaves.push({
+        sessionId: currNode.sessionId,
+        title: currNode.title,
+        rect: currRect,
+      });
+      return;
+    }
+
+    const { direction, ratio, children } = currNode;
+    const firstLeafId = findFirstSessionId(children[0]) || '';
+
+    if (direction === 'vertical') {
+      const leftWidth = currRect.width * ratio;
+      const rightWidth = currRect.width * (1 - ratio);
+
+      traverse(children[0], {
+        left: currRect.left,
+        top: currRect.top,
+        width: leftWidth,
+        height: currRect.height,
+      });
+
+      dividers.push({
+        id: firstLeafId,
+        direction: 'vertical',
+        ratio,
+        containerRect: currRect,
+        position: currRect.left + leftWidth,
+        start: currRect.top,
+        length: currRect.height,
+      });
+
+      traverse(children[1], {
+        left: currRect.left + leftWidth,
+        top: currRect.top,
+        width: rightWidth,
+        height: currRect.height,
+      });
+    } else {
+      const topHeight = currRect.height * ratio;
+      const bottomHeight = currRect.height * (1 - ratio);
+
+      traverse(children[0], {
+        left: currRect.left,
+        top: currRect.top,
+        width: currRect.width,
+        height: topHeight,
+      });
+
+      dividers.push({
+        id: firstLeafId,
+        direction: 'horizontal',
+        ratio,
+        containerRect: currRect,
+        position: currRect.top + topHeight,
+        start: currRect.left,
+        length: currRect.width,
+      });
+
+      traverse(children[1], {
+        left: currRect.left,
+        top: currRect.top + topHeight,
+        width: currRect.width,
+        height: bottomHeight,
+      });
+    }
+  }
+
+  traverse(node, rect);
+  return { leaves, dividers };
 }

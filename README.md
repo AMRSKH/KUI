@@ -1,6 +1,11 @@
-# KUI (Khmer Terminal UI) 🚀
-
-[ភាសាខ្មែរ](#ភាសាខ្មែរ) | [English](#english)
+<div align="center">
+  <img src="app-icon.svg" alt="KUI Logo" width="128" height="128" />
+  <h1>KUI (Khmer Terminal UI) 🚀</h1>
+  <p><strong>A lightweight, blazing-fast terminal built for Windows with first-class Khmer Unicode support.</strong></p>
+  <p>
+    <a href="#ភាសាខ្មែរ">ភាសាខ្មែរ</a> • <a href="#english">English</a>
+  </p>
+</div>
 
 ---
 

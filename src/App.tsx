@@ -126,8 +126,15 @@ export const App: React.FC = () => {
   }, []);
 
   // Split a pane inside whichever tab contains the target session (or activeTabId)
+  const lastSplitTimeRef = React.useRef(0);
   const handleSplitPane = useCallback(
     (targetSessionId: string, direction: SplitDirection) => {
+      const now = Date.now();
+      if (now - lastSplitTimeRef.current < 200) {
+        return;
+      }
+      lastSplitTimeRef.current = now;
+
       const newSessionId = crypto.randomUUID();
       setTabs((prev) => {
         const targetTab =
