@@ -11,6 +11,11 @@ import { getTheme } from '../utils/theme';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
+// Use representative clusters instead of a Latin-only sample. This makes the
+// Font Loading API wait for the Khmer glyph face selected by unicode-range.
+const KHMER_FONT_SAMPLE = 'សួស្តី កម្ពុជា ស្ត្រី ព្រះវិហារ ជើង ្ត ្រ ្ក ្ព ្ទ ញ្ជ ង្ក';
+const LATIN_FONT_SAMPLE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_@#%';
+
 interface TerminalPaneProps {
   sessionId: string;
   isFocused: boolean;
@@ -80,7 +85,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       theme: getTheme(settingsRef.current.theme),
       scrollback: 5000,
       cursorInactiveStyle: 'outline',
-      convertEol: true,
+      convertEol: false,
+      windowsMode: false,
       windowsPty: {
         backend: 'conpty',
         buildNumber: 22000,
@@ -115,141 +121,155 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       }
     };
 
-    // Keyboard shortcut routing
-    term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
-      const code = e.code;
-      const key = e.key ? e.key.toUpperCase() : '';
-      const keyCode = e.keyCode || e.which || 0;
-      const isD = code === 'KeyD' || key === 'D' || keyCode === 68 || e.key === 'ឌ' || e.key === 'ដ';
-      const isE = code === 'KeyE' || key === 'E' || keyCode === 69 || e.key === 'ែ' || e.key === 'េ';
-      const isX = code === 'KeyX' || key === 'X' || keyCode === 88 || e.key === 'ខ';
-      const isT = code === 'KeyT' || key === 'T' || keyCode === 84 || e.key === 'ធ';
-      const isW = code === 'KeyW' || key === 'W' || keyCode === 87 || e.key === 'ឹ';
+    safeFit();
 
-      const isSplitRight =
-        (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isD) ||
-        ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowRight');
-
-      const isSplitDown =
-        (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isE) ||
-        ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowDown');
-
-      if (isSplitRight) {
-        if (e.type === 'keydown') {
-          e.preventDefault();
-          e.stopPropagation();
-          onSplitRef.current?.('vertical');
-        }
-        return false;
-      }
-
-      if (isSplitDown) {
-        if (e.type === 'keydown') {
-          e.preventDefault();
-          e.stopPropagation();
-          onSplitRef.current?.('horizontal');
-        }
-        return false;
-      }
-
-      const isAppShortcut =
-        (e.ctrlKey && e.shiftKey && (isT || isW || isX || isD || isE)) ||
-        (e.altKey && e.shiftKey && (isD || isE)) ||
-        (e.ctrlKey && !e.shiftKey && !e.altKey && (code === 'Comma' || e.key === ',' || keyCode === 188)) ||
-        (e.ctrlKey && !e.altKey && (code === 'Equal' || code === 'NumpadAdd' || e.key === '=' || e.key === '+' || keyCode === 187 || keyCode === 107)) ||
-        (e.ctrlKey && !e.altKey && (code === 'Minus' || code === 'NumpadSubtract' || e.key === '-' || keyCode === 189 || keyCode === 109)) ||
-        (e.ctrlKey && !e.altKey && (code === 'Digit0' || code === 'Numpad0' || e.key === '0' || keyCode === 48 || keyCode === 96));
-
-      if (isAppShortcut) {
-        return false;
-      }
-      return true;
-    });
-
-    term.textarea?.addEventListener('focus', () => {
-      onFocusRef.current?.();
-    });
-
-    term.onData((data) => {
-      if (isTauriEnv()) {
-        invoke('write_to_pty', { sessionId, data }).catch(() => {});
-      }
-    });
-
-    term.onBinary((data) => {
-      if (isTauriEnv()) {
-        invoke('write_to_pty', { sessionId, data }).catch(() => {});
-      }
-    });
-
-    // ResizeObserver for responsive layout changes
-    let rafId: number | null = null;
-    const triggerFit = () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(safeFit);
-    };
-
-    const ro = new ResizeObserver(triggerFit);
-    ro.observe(container);
-    window.addEventListener('resize', triggerFit);
-
-    // Initial fit
-    triggerFit();
-
-    // Spawn PTY process
-    let unlistenOutput: (() => void) | undefined;
-    let unlistenClosed: (() => void) | undefined;
-
-    const initPty = async () => {
-      if (isTauriEnv()) {
-        setStatusMsg('Connecting...');
+    // Re-fit and refresh when web fonts (Kantumruy Pro / JetBrains Mono) finish loading
+    if (typeof document !== 'undefined' && document.fonts) {
+      document.fonts.ready.then(() => {
+        safeFit();
         try {
-          const [unOutput, unClosed] = await Promise.all([
-            listen<PtyOutputPayload>('pty-output', (event) => {
-              if (event.payload.session_id === sessionId) {
-                term.write(event.payload.data);
-              }
-            }),
-            listen<PtyOutputPayload>('pty-closed', (event) => {
-              if (event.payload.session_id === sessionId) {
-                setStatusMsg('Closed');
-                term.writeln('\r\n\x1b[90m[Process completed — press Enter to dismiss]\x1b[0m');
-              }
-            }),
-          ]);
-
-          unlistenOutput = unOutput;
-          unlistenClosed = unClosed;
-
-          triggerFit();
-
-          const initialCols = term.cols > 0 ? term.cols : 80;
-          const initialRows = term.rows > 0 ? term.rows : 24;
-
-          await invoke('spawn_pty', {
-            sessionId,
-            shell: settingsRef.current.shell.trim() || null,
-            cols: initialCols,
-            rows: initialRows,
-          });
-
-          setStatusMsg('');
-          triggerFit();
-        } catch (err) {
-          setStatusMsg('Error');
-          term.writeln(`\r\n\x1b[31;1m[KUI Error]\x1b[0m Failed to spawn shell: ${err}\r\n`);
+          term.refresh(0, term.rows - 1);
+        } catch {
+          // ignore
         }
-      } else {
-        term.writeln('\r\n\x1b[33;1m[KUI Desktop]\x1b[0m KUI is running in browser preview.');
-        term.writeln('Native PTY requires Tauri desktop runtime (KUI.exe).\r\n');
-      }
+      });
+    }
 
-      if (isFocusedRef.current) {
-        term.focus();
-      }
-    };
+      // Keyboard shortcut routing
+      term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+        const code = e.code;
+        const key = e.key ? e.key.toUpperCase() : '';
+        const keyCode = e.keyCode || e.which || 0;
+        const isD = code === 'KeyD' || key === 'D' || keyCode === 68 || e.key === 'ឌ' || e.key === 'ដ';
+        const isE = code === 'KeyE' || key === 'E' || keyCode === 69 || e.key === 'ែ' || e.key === 'េ';
+        const isX = code === 'KeyX' || key === 'X' || keyCode === 88 || e.key === 'ខ';
+        const isT = code === 'KeyT' || key === 'T' || keyCode === 84 || e.key === 'ធ';
+        const isW = code === 'KeyW' || key === 'W' || keyCode === 87 || e.key === 'ឹ';
 
-    initPty();
+        const isSplitRight =
+          (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isD) ||
+          ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowRight');
+
+        const isSplitDown =
+          (((e.ctrlKey && e.shiftKey) || (e.altKey && e.shiftKey) || (e.ctrlKey && e.altKey)) && isE) ||
+          ((e.ctrlKey || e.altKey) && e.shiftKey && code === 'ArrowDown');
+
+        if (isSplitRight) {
+          if (e.type === 'keydown') {
+            e.preventDefault();
+            e.stopPropagation();
+            onSplitRef.current?.('vertical');
+          }
+          return false;
+        }
+
+        if (isSplitDown) {
+          if (e.type === 'keydown') {
+            e.preventDefault();
+            e.stopPropagation();
+            onSplitRef.current?.('horizontal');
+          }
+          return false;
+        }
+
+        const isAppShortcut =
+          (e.ctrlKey && e.shiftKey && (isT || isW || isX || isD || isE)) ||
+          (e.altKey && e.shiftKey && (isD || isE)) ||
+          (e.ctrlKey && !e.shiftKey && !e.altKey && (code === 'Comma' || e.key === ',' || keyCode === 188)) ||
+          (e.ctrlKey && !e.altKey && (code === 'Equal' || code === 'NumpadAdd' || e.key === '=' || e.key === '+' || keyCode === 187 || keyCode === 107)) ||
+          (e.ctrlKey && !e.altKey && (code === 'Minus' || code === 'NumpadSubtract' || e.key === '-' || keyCode === 189 || keyCode === 109)) ||
+          (e.ctrlKey && !e.altKey && (code === 'Digit0' || code === 'Numpad0' || e.key === '0' || keyCode === 48 || keyCode === 96));
+
+        if (isAppShortcut) {
+          return false;
+        }
+        return true;
+      });
+
+      term.textarea?.addEventListener('focus', () => {
+        onFocusRef.current?.();
+      });
+
+      term.onData((data) => {
+        if (isTauriEnv()) {
+          invoke('write_to_pty', { sessionId, data }).catch(() => {});
+        }
+      });
+
+      term.onBinary((data) => {
+        if (isTauriEnv()) {
+          invoke('write_to_pty', { sessionId, data }).catch(() => {});
+        }
+      });
+
+      // ResizeObserver for responsive layout changes
+      let rafId: number | null = null;
+      const triggerFit = () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(safeFit);
+      };
+
+      const ro = new ResizeObserver(triggerFit);
+      ro.observe(container);
+      window.addEventListener('resize', triggerFit);
+
+      // Initial fit
+      triggerFit();
+
+      // Spawn PTY process
+      let unlistenOutput: (() => void) | undefined;
+      let unlistenClosed: (() => void) | undefined;
+
+      const initPty = async () => {
+        if (isTauriEnv()) {
+          setStatusMsg('Connecting...');
+          try {
+            const [unOutput, unClosed] = await Promise.all([
+              listen<PtyOutputPayload>('pty-output', (event) => {
+                if (event.payload.session_id === sessionId) {
+                  term.write(event.payload.data);
+                }
+              }),
+              listen<PtyOutputPayload>('pty-closed', (event) => {
+                if (event.payload.session_id === sessionId) {
+                  setStatusMsg('Closed');
+                  term.writeln('\r\n\x1b[90m[Process completed — press Enter to dismiss]\x1b[0m');
+                }
+              }),
+            ]);
+
+            unlistenOutput = unOutput;
+            unlistenClosed = unClosed;
+
+            triggerFit();
+
+            const initialCols = term.cols > 0 ? term.cols : 80;
+            const initialRows = term.rows > 0 ? term.rows : 24;
+
+            await invoke('spawn_pty', {
+              sessionId,
+              shell: settingsRef.current.shell.trim() || null,
+              cols: initialCols,
+              rows: initialRows,
+            });
+
+            setStatusMsg('');
+            triggerFit();
+          } catch (err) {
+            setStatusMsg('Error');
+            term.writeln(`\r\n\x1b[31;1m[KUI Error]\x1b[0m Failed to spawn shell: ${err}\r\n`);
+          }
+        } else {
+          term.writeln('\r\n\x1b[33;1m[KUI Desktop]\x1b[0m KUI is running in browser preview.');
+          term.writeln('Native PTY requires Tauri desktop runtime (KUI.exe).\r\n');
+        }
+
+        if (isFocusedRef.current) {
+          term.focus();
+        }
+      };
+
+      initPty();
 
     return () => {
       ro.disconnect();
@@ -261,8 +281,11 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       if (isTauriEnv()) {
         invoke('kill_pty', { sessionId }).catch(() => {});
       }
+      termRef.current = null;
+      fitAddonRef.current = null;
     };
   }, [sessionId]);
+
 
   // Update terminal settings in real time
   useEffect(() => {
@@ -283,6 +306,56 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     } catch {
       // ignore
     }
+
+    // xterm paints to a canvas. When a bundled font is still loading, its
+    // first paint uses a fallback font and will remain that way until the
+    // canvas is explicitly refreshed. Wait for the selected Khmer face and
+    // both bundled fallbacks, then measure and repaint with the shaped glyphs.
+    const refreshWhenFontsReady = async () => {
+      if (typeof document === 'undefined' || !document.fonts) return;
+
+      const size = `${settings.fontSize}px`;
+      const fontFamilies = Array.from(
+        new Set([
+          settings.primaryFont,
+          settings.khmerFont,
+          'JetBrains Mono',
+          'Kantumruy Pro',
+          'Noto Sans Khmer',
+        ])
+      );
+
+      try {
+        await Promise.all([
+          ...fontFamilies.flatMap((family) => [
+            document.fonts.load(`400 ${size} "${family}"`, LATIN_FONT_SAMPLE),
+            document.fonts.load(`700 ${size} "${family}"`, LATIN_FONT_SAMPLE),
+            document.fonts.load(`400 ${size} "${family}"`, KHMER_FONT_SAMPLE),
+            document.fonts.load(`700 ${size} "${family}"`, KHMER_FONT_SAMPLE),
+          ]),
+        ]);
+        await document.fonts.ready;
+      } catch {
+        // Keep the browser/system fallback if a user-selected font is absent.
+      }
+
+      // A newer terminal may have replaced this one while fonts were loading.
+      if (termRef.current !== term) return;
+
+      try {
+        term.clearTextureAtlas();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (term as any)._core?._charSizeService?.measure();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (term as any)._core?._renderService?.clear();
+        fitAddon.fit();
+        term.refresh(0, term.rows - 1);
+      } catch {
+        // ignore a terminal that was disposed during a layout update
+      }
+    };
+
+    void refreshWhenFontsReady();
   }, [settings]);
 
   // Focus and re-fit when isFocused changes
@@ -409,7 +482,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       {/* xterm.js DOM Container */}
       <div
         ref={containerRef}
-        className="flex-1 w-full min-h-0 min-w-0 overflow-hidden bg-transparent"
+        className="flex-1 w-full min-h-0 min-w-0 overflow-hidden p-1 bg-transparent"
       />
     </div>
   );

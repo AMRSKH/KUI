@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Sliders, Type, Palette, Terminal as TerminalIcon, Sparkles } from 'lucide-react';
 import { TerminalSettings } from '../types/terminal';
 import { THEMES } from '../utils/theme';
+import { computeFontFamily } from '../utils/terminalSessions';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -63,7 +64,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onUpdateSettings(updated);
   };
 
-  const previewFontFamily = `"${settings.primaryFont}", "${settings.khmerFont}", "Kantumruy Pro", "Noto Sans Khmer", monospace`;
+  const previewFontFamily = computeFontFamily(settings);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
