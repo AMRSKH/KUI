@@ -4,7 +4,7 @@
 
 ---
 
-## [0.1.8] - 2026-10-24
+## [0.1.7] - 2026-10-24
 
 ### 🇰🇭 ភាសាខ្មែរ
 
@@ -13,8 +13,11 @@
   - ដោះស្រាយបញ្ហាអក្សរជាន់គ្នា និងរញ៉េរញ៉ៃ ដោយកំណត់ `.xterm-rows span` ឱ្យប្រើ `letter-spacing: normal !important` និង `overflow: visible !important`។
   - រៀបចំការផ្គុំជើងអក្សរ ស្រៈនិស្ស័យ និងសញ្ញាលើក្រោមបានស្អាតច្បាស់ មិនកាត់ឬដាច់កន្ទុយអក្សរ។
   - ផ្ទុក Font ពេញលេញ ធានាឱ្យដំណើរការ OpenType Ligatures (`liga`, `calt`, `clig`) បានត្រឹមត្រូវគ្រប់ពាក្យ។
-- **ពង្រឹងការបំបែកផ្ទាំង (Split Panes):**
+- **ពង្រឹងការបំបែកផ្ទាំង (Split Panes) និង Tab:**
   - រក្សាទំហំ Layout ច្បាស់លាស់ មិនបាត់បង់ Session ឬកកស្ទះពេលពុះ Pane ទៅខាងស្ដាំ ឬខាងក្រោម។
+  - រក្សាដំណើរការ Terminal មិនឱ្យបាត់ State ឬ Reset ពេលប្ដូរ Tab។
+- **ផ្លូវកាត់ក្តារចុច (Keyboard Shortcuts):**
+  - កំណត់ `Ctrl+Shift+X` សម្រាប់បិទ Settings ឬបិទ Pane ដែលកំពុងដំណើរការ។
 
 ---
 
@@ -25,16 +28,11 @@
   - Eliminated negative letter-spacing and squished characters by neutralizing xterm DOM renderer metrics (`letter-spacing: normal !important`, `overflow: visible !important`).
   - Restored seamless subscript consonant stacking (`ជើង`) and combining vowel clusters without vertical clipping or horizontal gaps.
   - Restored full OpenType font shaping with active ligatures (`liga`, `calt`, `clig`).
-- **Split Pane Layout Stability:**
+- **Split Pane Layout & Tab Stability:**
   - Implemented persistent absolute layouts preventing terminal resize glitching and session drop during horizontal/vertical splitting.
-
----
-
-## [0.1.7] - 2026-10-23
-
-- **Terminal Instance Preservation:** Attach xterm directly to container elements to preserve terminal state across tab switches.
-- **Split Pane Reliability:** Resolved blank screen issues when triggering Split Right / Split Down.
-- **Keyboard Shortcuts:** Updated `Ctrl+Shift+X` for closing panes and dialogs.
+  - Attached xterm directly to container elements to preserve terminal state across tab switches.
+- **Shortcuts & UX:**
+  - Updated `Ctrl+Shift+X` for closing settings or focused panes cleanly.
 
 ---
 
