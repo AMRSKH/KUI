@@ -105,6 +105,19 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
+    // Tag DOM spans that contain Khmer text so CSS only relaxes spacing / enables
+    // CTL shaping for Khmer clusters, without affecting TUI/ASCII output.
+    const classifyKhmerSpans = () => {
+      const spans = container.querySelectorAll('.xterm-rows span');
+      for (const span of spans) {
+        const hasKhmer = /[\u1780-\u17FF]/.test(span.textContent || '');
+        (span as HTMLElement).classList.toggle('kui-khmer', hasKhmer);
+      }
+    };
+    const renderDisposable = term.onRender(classifyKhmerSpans);
+    // Classify any already-rendered spans immediately as well.
+    requestAnimationFrame(classifyKhmerSpans);
+
     const safeFit = () => {
       try {
         if (!container || container.clientWidth === 0 || container.clientHeight === 0) {
@@ -275,6 +288,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       ro.disconnect();
       window.removeEventListener('resize', triggerFit);
       if (rafId) cancelAnimationFrame(rafId);
+      renderDisposable?.dispose();
       unlistenOutput?.();
       unlistenClosed?.();
       term.dispose();

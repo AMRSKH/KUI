@@ -49,27 +49,24 @@
   overflow-y: auto !important;
 }
 
-/* Make sure Khmer characters and stacked vowels have proper spacing & OpenType ligatures */
+/* Default (non-Khmer) text keeps xterm's native spacing/font shaping so TUI agents
+   (OpenCode, lazygit, etc.) render exactly like the DOM renderer intends. */
 .xterm-rows {
   letter-spacing: normal;
-  font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
+  font-feature-settings: normal;
   text-rendering: optimizeLegibility;
   font-variant-ligatures: normal;
 }
 
-/* 
- * CRITICAL FIX FOR KHMER CTL IN XTERM DOM RENDERER (v0.1.2):
- * 1. xterm's DomRendererRowFactory calculates:
- *    spacing = cellWidth - widthCache.get(chars)
- *    and injects inline `style="letter-spacing: -7px;"` onto individual <span> elements
- *    because Khmer glyphs are wider than Latin monospace cells (~16px vs ~9px).
- *    This inline negative letter-spacing crushes Khmer consonants into each other.
- *    Overriding with `letter-spacing: normal !important;` prevents character squishing.
- * 2. `overflow: visible !important;` prevents tall subscripts (ជើង) and top vowels from clipping.
+/*
+ * Khmer spans are marked with `.kui-khmer` by TerminalPane (see onRender
+ * classifier). Only those spans get the CTL-safe overrides; everything else keeps
+ * xterm's computed inline letter-spacing so box-drawing/code/ASCII output is not
+ * squished or re-ligatured differently than powershell/cmd.
  */
-.xterm .xterm-rows span,
-.xterm-rows span,
-.xterm-rows div span {
+.xterm .xterm-rows span.kui-khmer,
+.xterm-rows span.kui-khmer,
+.xterm-rows div span.kui-khmer {
   letter-spacing: normal !important;
   font-feature-settings: "liga" 1, "calt" 1, "clig" 1;
   overflow: visible !important;
